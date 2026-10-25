@@ -37,13 +37,17 @@ npm run dev
 
 ## Preview & downloads
 
-A static preview site lives at the repo root:
+**Permanent live preview: https://loxiro-preview.vercel.app/**
 
-- [`index.html`](index.html) — preview page with the concept board and one-click download buttons.
-- [`loxiro-plan-preview.zip`](loxiro-plan-preview.zip) — plan, concept board (SVG + PNG), README, and preview page bundled for offline use.
+The preview page is fully self-contained — the concept board, full plan, and every download are embedded, so it works offline too.
+
+- [`index.html`](index.html) — self-contained preview page with one-click download buttons.
+- [`loxiro-plan-preview.zip`](loxiro-plan-preview.zip) — plan, concept board (SVG + PNG), and README bundled for offline use.
 - [`docs/assets/loxiro-concept.png`](docs/assets/loxiro-concept.png) — high-resolution concept board.
 
-Open `index.html` through the live preview URL (served on port 8080) to view it on any device, or grab the ZIP directly.
+> **Note:** the sandbox's `*.e2b.app` preview URL requires a traffic-access token and cannot be shared directly (it returns 403). Use the Vercel link above instead — it is public and permanent.
+
+Rebuild the generated files with `python3 scripts/generate-preview.py && npm run build`.
 
 ## Docs
 
