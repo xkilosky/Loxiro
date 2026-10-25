@@ -20,3 +20,17 @@ Built with the user's three requested pillars: fast search, direct downloads, an
 - Local calculator is a restricted recursive-descent parser, not JavaScript eval.
 - “Smart” is deterministic intent detection and local tools. AI answer searches can open Perplexity externally; no LLM is running in the app.
 - App installation depends on browser support and HTTPS. Native app stores, tab rendering, extension support, accounts, synchronization, and backup import remain future work.
+
+# v0.3 — Unified search
+
+User change: replace provider picking with one merged, ranked result feed.
+
+- The browser now calls same-origin `GET /api/search?q=…`. A Vercel Node function searches the configured providers concurrently with independent 5.5-second timeouts; one failure does not discard the others.
+- Providers: Google via Serper (`SERPER_API_KEY`), Brave (`BRAVE_SEARCH_API_KEY`), Wikipedia, and DuckDuckGo Instant Answers. The last two are **knowledge sources, not complete web-search indexes**. Bing and Perplexity are not aggregation adapters; their explicit bang shortcuts remain external links.
+- No API keys are embedded in the client. Missing keys produce `not_configured`, network/provider errors produce `unavailable`, and empty successful responses are distinct. No fixture results are shipped in the app.
+- Ranking uses reciprocal rank fusion (one vote per provider), a bounded text-match boost, and a domain-diversity pass. The top ten unique URLs are displayed with their contributing sources and a ranking explanation. It is a heuristic, not an objective quality/accuracy guarantee.
+- Canonicalization removes fragments and known tracking parameters and normalizes scheme, www, and trailing slashes, while preserving meaningful parameters. It deduplicates equivalent URLs; it does not detect every mirrored or semantically equivalent article.
+- The server does not persist queries or log provider diagnostics. Response caching is disabled. Queries are necessarily shared with participating providers and may be present in hosting-provider request logs.
+- The API validates query size (200 characters), limits results, and applies a bounded in-memory IP rate limit (12 searches/minute per warm instance). This is **not a distributed billing-abuse defense**: configure a durable/shared rate limiter or platform firewall and API spending limits before opening paid providers at scale.
+- Local development/production preview needs `npm run dev:api` in addition to the Vite server. Vite proxies relative `/api` requests to port 8787; the browser never calls localhost directly.
+- 17 new backend tests cover canonicalization, consensus ranking, deduplication, domain diversity, failed/unconfigured providers, API response normalization, validation, and secret exclusion. 59 total unit/hook/backend tests pass. Browser smoke now checks the unified feed, attribution, limited coverage, save/persistence, results-screen axe checks, responsive overflow, and offline tools. Browser API responses are mocked, not proof that paid providers are connected.

@@ -7,7 +7,7 @@ import {
   Palette, Type, RefreshCw, FileDown, Pause, CheckCircle2, AlertCircle, WifiOff,
   Sun, Moon, Monitor, Smartphone, Keyboard, Folder, Link2, LoaderCircle, Menu,
 } from 'lucide-react';
-import type { EngineId, Screen, Settings, SavedLink, Space, RecentSearch, KnowledgeAnswer } from './types';
+import type { EngineId, Screen, Settings, SavedLink, Space, RecentSearch, UnifiedResult, UnifiedSearchResponse } from './types';
 import { WEB_ENGINES, VERTICAL_ENGINES, getEngine, engineUrl } from './data/engines';
 import { BANGS } from './data/bangs';
 import { QUICK_EXAMPLES, SUGGESTIONS } from './data/suggestions';
@@ -53,7 +53,10 @@ export default function App() {
   const [online,setOnline] = useState(navigator.onLine);
   const [install,setInstall] = useState<InstallEvent|null>(null);
   const [installHelp,setInstallHelp] = useState(false);
-  const [knowledge,setKnowledge] = useState<KnowledgeAnswer[]>([]);
+  const [knowledge,setKnowledge] = useState<UnifiedResult[]>([]);
+  const [searchData,setSearchData] = useState<UnifiedSearchResponse|null>(null);
+  const [searchError,setSearchError] = useState('');
+  const [searchAttempt,setSearchAttempt] = useState(0);
   const [knowledgeStatus,setKnowledgeStatus] = useState<'idle'|'loading'|'done'|'error'>('idle');
   const [tool,setTool] = useState('calculator'); const [toolInput,setToolInput] = useState('');
   const [convertInput,setConvertInput] = useState('100 km to mi');
@@ -94,26 +97,31 @@ export default function App() {
   });
   useEffect(()=>{setFormError('');},[modal]);
 
-  // A public, real knowledge source. We never scrape or fabricate engine results.
+  // Unified server-side search; late responses never replace a newer query.
   useEffect(()=>{
     if(screen!=='results'||!submitted.trim())return;
-    const controller=new AbortController();setKnowledge([]);setKnowledgeStatus('loading');
-    const timer=setTimeout(()=>controller.abort(),10000);
+    const controller=new AbortController();let disposed=false;
+    setKnowledge([]);setSearchData(null);setSearchError('');setKnowledgeStatus('loading');
+    const timer=setTimeout(()=>controller.abort(),11000);
     const clean=analyze(submitted,engine).cleanQuery;
-    const api=`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(clean)}&gsrlimit=5&prop=extracts|pageimages&exintro=1&explaintext=1&exsentences=2&piprop=thumbnail&pithumbsize=100&format=json&origin=*`;
-    fetch(api,{signal:controller.signal,credentials:'omit',referrerPolicy:'no-referrer'}).then(r=>{if(!r.ok)throw new Error();return r.json();}).then(data=>{
-      if(controller.signal.aborted)return;
-      const pages=Object.values(data.query?.pages||{}) as {title:string;extract:string;pageid:number;index:number;thumbnail?:{source:string}}[];
-      setKnowledge(pages.sort((a,b)=>a.index-b.index).map(p=>({title:p.title,extract:p.extract,url:`https://en.wikipedia.org/?curid=${p.pageid}`,source:'Wikipedia',thumbnail:p.thumbnail?.source})));
-      setKnowledgeStatus('done');
-    }).catch(()=>{if(!controller.signal.aborted)setKnowledgeStatus('error');else if(!disposed)setKnowledgeStatus('error');}).finally(()=>clearTimeout(timer));
-    let disposed=false;
+    fetch(`/api/search?q=${encodeURIComponent(clean)}`,{signal:controller.signal,credentials:'same-origin',cache:'no-store'}).then(async r=>{
+      const data=await r.json();
+      if(!r.ok)throw new Error(data.error||'Search is temporarily unavailable.');
+      return data as UnifiedSearchResponse;
+    }).then(data=>{
+      if(disposed||controller.signal.aborted)return;
+      setKnowledge(data.results);setSearchData(data);setKnowledgeStatus('done');
+    }).catch(error=>{
+      if(disposed)return;
+      setSearchError(controller.signal.aborted?'The search timed out. Please try again.':error instanceof SyntaxError?'The search service is not available on this preview.':error.message||'Could not reach the search service.');
+      setKnowledgeStatus('error');
+    }).finally(()=>clearTimeout(timer));
     return()=>{disposed=true;clearTimeout(timer);controller.abort();};
-  },[screen,submitted]);
+  },[screen,submitted,searchAttempt]);
 
   function go(next:Screen,q='',e=engine) {
     setScreen(next);setFocused(false);setSuggestionIndex(-1);
-    const params=new URLSearchParams();if(q){params.set('q',q);params.set('engine',e);}
+    const params=new URLSearchParams();if(q){params.set('q',q);}
     location.hash=next==='home'?'home':`${next}${q?'?'+params:''}`;
   }
   function open(url:string) {const safe=safeUrl(url);if(!safe){setToast('Only HTTP and HTTPS links are supported.');return;}if(settings.openInNewTab)window.open(safe,'_blank','noopener,noreferrer');else location.assign(safe);}
@@ -121,11 +129,13 @@ export default function App() {
     q=q.trim();if(!q)return;
     const a=analyze(q,e);
     if(a.intent==='url'&&a.url){open(a.url);remember(q,e);return;}
-    const chosen=a.bang?a.engine:e;
+    if(a.bang&&a.cleanQuery){open(engineUrl(a.engine,a.cleanQuery));remember(q,a.engine);return;}
+    if(q===submitted&&screen==='results')setSearchAttempt(n=>n+1);
+    const chosen=e;
     remember(q,chosen);setQuery(q);setSubmitted(q);setEngine(chosen);go('results',q,chosen);searchRef.current?.blur();
   }
   function remember(q:string,e:EngineId){if(settings.showRecents)setRecents(rs=>[{id:uid(),query:q,engine:e,createdAt:Date.now()},...rs.filter(r=>r.query!==q)].slice(0,40));}
-  function switchEngine(e:EngineId){setEngine(e);if(screen==='results'){const p=new URLSearchParams({q:submitted,engine:e});history.replaceState(null,'',`#results?${p}`);}}
+
   function prepareSave(url='',title=''){setSaveUrl(url);setSaveTitle(title);setSaveSpace(activeSpace==='all'?'inbox':activeSpace);setModal('save');}
   function addSaved(e:FormEvent){e.preventDefault();const url=safeUrl(saveUrl.trim())||normalizeUrl(saveUrl.trim());if(!url){setFormError('Enter a valid http:// or https:// address.');return;}if(saved.some(s=>s.url===url)){setFormError('This link is already in your Spaces.');return;}setSaved(s=>[{id:uid(),url,title:saveTitle.trim()||new URL(url).hostname,spaceId:saveSpace,createdAt:Date.now()},...s]);setModal(null);setToast('Saved to your space.');}
   function addSpace(e:FormEvent){e.preventDefault();if(!spaceName.trim())return;const id=uid();setSpaces(s=>[...s,{id,name:spaceName.trim(),color:spaceColor,createdAt:Date.now()}]);setActiveSpace(id);setSpaceName('');setModal(null);}
@@ -145,7 +155,7 @@ export default function App() {
     <form className={`searchbox ${focused?'is-focused':''}`} onSubmit={e=>{e.preventDefault();search();}}>
       <Search size={compact?20:24} strokeWidth={1.8} className="search-icon"/>
       <input ref={searchRef} value={query} onChange={e=>{setQuery(e.target.value);setSuggestionIndex(-1);setFocused(true);}} onFocus={()=>setFocused(true)} onKeyDown={inputKey}
-        placeholder="Search anything, or enter a URL" aria-label="Search the web or enter a URL" autoComplete="off" spellCheck={false}
+        placeholder="Search anything, or enter a URL" aria-label="Search the web or enter a URL" autoComplete="off" spellCheck={false} maxLength={200}
         role="combobox" aria-expanded={focused&&suggestions.length>0} aria-controls="suggestions" aria-activedescendant={suggestionIndex>=0?`suggestion-${suggestionIndex}`:undefined}/>
       {query&&<button type="button" className="icon-btn clear-search" aria-label="Clear search" onClick={()=>{setQuery('');searchRef.current?.focus();}}><X size={17}/></button>}
       {!query&&<kbd className="search-key">⌘ K</kbd>}
@@ -154,7 +164,8 @@ export default function App() {
     {focused&&suggestions.length>0&&<div className="suggestions" id="suggestions" role="listbox">{suggestions.map((s,i)=><button id={`suggestion-${i}`} key={s} type="button" role="option" aria-selected={suggestionIndex===i} className={suggestionIndex===i?'selected':''} onMouseDown={e=>e.preventDefault()} onClick={()=>{if(bangSuggestions.length){setQuery(s);setSuggestionIndex(-1);searchRef.current?.focus();}else search(s);}}><Search size={16}/><span>{s}{bangSuggestions.length&&<small>{bangSuggestions[i]?.description}</small>}</span><ArrowUpRight size={15}/></button>)}</div>}
     {query.trim()&&smart.value&&smart.intent!=='search'&&smart.intent!=='question'&&smart.intent!=='code'&&<button className="instant-preview" onClick={()=>smart.intent==='url'&&smart.url?open(smart.url):search()}><Sparkles size={16}/><span><small>{smart.headline}</small><strong>{smart.value}</strong></span><ArrowUpRight size={17}/></button>}
   </div>;}
-  function engineChips(){return <div className="engine-chips" aria-label="Search engine">{WEB_ENGINES.map(e=><button key={e.id} aria-pressed={e.id===engine} className={`engine-chip ${engine===e.id?'active':''}`} onClick={()=>switchEngine(e.id)}><span className="engine-dot" style={{background:e.color}}/>{e.short}{engine===e.id&&<Check size={12}/>}</button>)}</div>;}
+  function unifiedBadge(){return <div className="unified-search-badge"><Layers size={13}/><span>One search</span><span className="badge-divider">/</span><span>Combined sources</span><span className="badge-divider">/</span><span>No duplicates</span></div>;}
+
   function pageHeading(eyebrow:string,title:string,description:string,action?:React.ReactNode){return <div className="page-heading"><div><div className="eyebrow">{eyebrow}</div><h1>{title}<span className="title-dot">.</span></h1><p>{description}</p></div>{action}</div>;}
 
   return <div className="app-shell" onClick={()=>{if(focused&&document.activeElement!==searchRef.current)setFocused(false);}}>
@@ -163,7 +174,7 @@ export default function App() {
       <div className="sidebar-label">YOUR EVERYDAY, REFINED</div>
       <nav className="desktop-nav" aria-label="Main navigation">{NAV.map(({id,label,icon:Icon})=><button key={id} className={(screen===id||(id==='home'&&screen==='results'))?'active':''} onClick={()=>go(id)}><Icon size={19} strokeWidth={1.8}/><span>{label}</span>{id==='downloads'&&activeDownloads>0?<b className="nav-count">{activeDownloads}</b>:id==='smart'?<span className="nav-new">NEW</span>:null}{id==='home'&&<kbd>⌘ K</kbd>}</button>)}</nav>
       <div className="sidebar-spaces"><div className="sidebar-section"><span>YOUR SPACES</span><button className="tiny-btn" aria-label="Create a space" onClick={()=>setModal('space')}><Plus size={16}/></button></div>{spaces.slice(0,5).map(s=><button key={s.id} onClick={()=>{setActiveSpace(s.id);go('spaces');}}><span className="space-dot" style={{background:s.color}}/>{s.name}<span className="quiet">{saved.filter(x=>x.spaceId===s.id).length}</span></button>)}<button className="create-space" onClick={()=>setModal('space')}><Plus size={15}/>New space</button></div>
-      <div className="sidebar-bottom"><div className="local-badge"><ShieldCheck size={15}/><span>Your space. Your data.</span><span className="status-dot"/></div><button className={`settings-nav ${screen==='settings'?'active':''}`} onClick={()=>go('settings')}><Settings2 size={18}/>Settings<span className="version">v0.2</span></button></div>
+      <div className="sidebar-bottom"><div className="local-badge"><ShieldCheck size={15}/><span>Your space. Your data.</span><span className="status-dot"/></div><button className={`settings-nav ${screen==='settings'?'active':''}`} onClick={()=>go('settings')}><Settings2 size={18}/>Settings<span className="version">v0.3</span></button></div>
     </aside>
 
     <div className="main-shell">
@@ -175,7 +186,7 @@ export default function App() {
             <div className="hero-badge"><span/>LESS NOISE. MORE DISCOVERY.<ArrowUpRight size={12}/></div>
             <h1>A little curiosity.<br/>A world of <span>possibility.</span></h1>
             <p className="hero-subtitle">One beautiful place to search, explore, and keep what matters.</p>
-            {searchBox()}{engineChips()}
+            {searchBox()}{unifiedBadge()}
             <div className="search-caption"><ShieldCheck size={12}/><span>No account. No tracking. Just you and the web.</span></div>
           </section>
           <section className="home-lower">
@@ -188,7 +199,7 @@ export default function App() {
             ].map(s=><button className="shortcut-card" key={s.label} onClick={()=>open(s.url)}><span className="shortcut-logo" style={{color:s.color,background:s.bg}}>{s.letter}</span><ArrowUpRight className="shortcut-arrow" size={16}/><strong>{s.label}</strong><small>{s.sub}</small></button>)}</div>
             <div className="home-columns">
               <section className="recent-section"><div className="section-heading"><h2>Pick up where you left off</h2>{recents.length>0&&<button className="text-btn" onClick={()=>setRecents([])}>Clear</button>}</div>
-                {settings.showRecents&&recents.length>0?<div className="recent-list">{recents.slice(0,4).map(r=><div className="recent-row" key={r.id}><button onClick={()=>search(r.query,r.engine)}><Clock3 size={17}/><span>{r.query}<small>{getEngine(r.engine).name} · {new Date(r.createdAt).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</small></span><ArrowUpRight size={16}/></button><button className="tiny-btn delete-recent" aria-label={`Remove ${r.query} from history`} onClick={()=>setRecents(rs=>rs.filter(x=>x.id!==r.id))}><X size={13}/></button></div>)}</div>:<div className="recents-empty"><Clock3 size={21}/><p>{settings.showRecents?'Your next discovery starts here.':'A clean slate, every time.'}<span>{settings.showRecents?'Recent searches will appear here, only on this device.':'Recent searches are turned off in Settings.'}</span></p></div>}
+                {settings.showRecents&&recents.length>0?<div className="recent-list">{recents.slice(0,4).map(r=><div className="recent-row" key={r.id}><button onClick={()=>search(r.query,r.engine)}><Clock3 size={17}/><span>{r.query}<small>Unified search · {new Date(r.createdAt).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</small></span><ArrowUpRight size={16}/></button><button className="tiny-btn delete-recent" aria-label={`Remove ${r.query} from history`} onClick={()=>setRecents(rs=>rs.filter(x=>x.id!==r.id))}><X size={13}/></button></div>)}</div>:<div className="recents-empty"><Clock3 size={21}/><p>{settings.showRecents?'Your next discovery starts here.':'A clean slate, every time.'}<span>{settings.showRecents?'Recent searches will appear here, only on this device.':'Recent searches are turned off in Settings.'}</span></p></div>}
               </section>
               <section className="discovery-card"><div className="discovery-top"><span className="sparkle-box"><Sparkles size={21}/></span><span className="pill">A LITTLE SMARTER</span></div><h3>Your search box.<br/>With a few superpowers.</h3><p>Calculate, convert, or jump straight to a site. All without missing a beat.</p><button onClick={()=>go('smart')}>Meet smart tools<ArrowRight size={16}/></button><span className="decor-orbit orbit-one"/><span className="decor-orbit orbit-two"/></section>
             </div>
@@ -197,13 +208,15 @@ export default function App() {
         </>}
 
         {screen==='results'&&<div className="results-page">
-          <div className="results-search"><button className="icon-btn" aria-label="Back to search" onClick={()=>go('home')}><ArrowLeft size={20}/></button>{searchBox(true)}</div>{engineChips()}
-          <div className="results-meta"><span>Explore the web</span><span><Zap size={12}/>One query. Every perspective.</span></div>
-          <div className="engine-launch-card"><div className="large-engine" style={{color:getEngine(engine).color}}>{getEngine(engine).letter}</div><div><span className="eyebrow">YOUR CHOSEN ENGINE</span><h2>Search with {getEngine(engine).name}</h2><p>Full, live web results. Open directly — no scraping, no imitation.</p></div><button className="primary-btn" onClick={()=>open(engineUrl(engine,analyze(submitted,engine).cleanQuery))}>Open results<ArrowUpRight size={17}/></button></div>
-          {(()=>{const a=analyze(submitted,engine);return a.value&&['calculation','conversion','color','time'].includes(a.intent)?<div className="answer-card"><div className="eyebrow"><Sparkles size={14}/>{a.headline} · ON DEVICE</div><p>{a.detail}</p><div className="answer-value">{a.intent==='color'&&<span className="color-inline" style={{background:a.value}}/>}{a.value}</div><button className="text-btn" onClick={()=>copy(a.value!)}><Copy size={14}/>Copy answer</button></div>:a.engine!==engine?<button className="route-tip" onClick={()=>switchEngine(a.engine)}><Sparkles size={17}/><span>{a.headline}. Try <strong>{getEngine(a.engine).name}</strong>.</span><ArrowRight size={16}/></button>:null;})()}
-          <div className="results-grid"><section><div className="section-heading"><h2>Knowledge, at a glance</h2><span className="source-label">LIVE · WIKIPEDIA</span></div>
-            {knowledgeStatus==='loading'?<div aria-live="polite" aria-label="Loading knowledge results">{[1,2,3].map(n=><div key={n} className="result-skeleton"><span/><span/><span/></div>)}</div>:knowledge.length?<div className="knowledge-list">{knowledge.map(k=><article className="knowledge-result" key={k.url}><div className="result-source"><span className="wiki-icon">W</span><span>Wikipedia<small>en.wikipedia.org</small></span><button className="icon-btn" aria-label={`Save ${k.title}`} onClick={()=>prepareSave(k.url,k.title)}><Bookmark size={16}/></button></div><a href={k.url} target={settings.openInNewTab?'_blank':undefined} rel="noopener noreferrer">{k.title}<ArrowUpRight size={17}/></a><p>{k.extract||'Explore this topic on Wikipedia.'}</p></article>)}</div>:<div className="empty-state compact-empty"><Globe2 size={27}/><h3>{knowledgeStatus==='error'?'Knowledge source unavailable':'No encyclopedia matches'}</h3><p>{knowledgeStatus==='error'?'We couldn’t reach Wikipedia. Your selected search engine is still one tap away.':'Try a broader topic, or open your search engine for complete web results.'}</p><button className="secondary-btn" onClick={()=>open(engineUrl(engine,submitted))}>Search the web<ArrowUpRight size={15}/></button></div>}
-          </section><aside className="results-aside"><div className="section-heading"><h2>Look a little further</h2></div><div className="vertical-links">{VERTICAL_ENGINES.map(e=><button key={e.id} onClick={()=>open(engineUrl(e.id,analyze(submitted,engine).cleanQuery))}><span className="engine-dot" style={{background:e.color}}/><span>{e.name}</span><ArrowUpRight size={15}/></button>)}</div><div className="privacy-note"><ShieldCheck size={20}/><strong>A clearer kind of search.</strong><p>Searches fetch public Wikipedia summaries. Full results open at your chosen engine, which has its own privacy policy.</p></div></aside></div>
+          <div className="results-search"><button className="icon-btn" aria-label="Back to search" onClick={()=>go('home')}><ArrowLeft size={20}/></button>{searchBox(true)}</div>{unifiedBadge()}
+          <div className="results-meta"><span>{knowledgeStatus==='loading'?'Gathering available sources…':`${knowledge.length} selected results`}</span><span><Zap size={12}/>Combined. Deduplicated. Ranked.</span></div>
+          <div className="fusion-header"><span className="fusion-icon"><Layers size={23}/></span><div><span className="eyebrow">LOXIRO UNIFIED SEARCH</span><h2>A better view, not more tabs.</h2><p>Available sources are searched together. Shared matches rise to the top, duplicate links disappear, and domains stay varied.</p></div></div>
+          {searchData?.limitedWebCoverage&&<div className="coverage-notice" role="status"><AlertCircle size={17}/><p><strong>Limited coverage right now.</strong> No full-web provider responded. Results below come from available knowledge sources. Full-web providers need configured API credentials and a working connection.</p></div>}
+          {(()=>{const a=analyze(submitted,engine);return a.value&&['calculation','conversion','color','time'].includes(a.intent)?<div className="answer-card"><div className="eyebrow"><Sparkles size={14}/>{a.headline} · ON DEVICE</div><p>{a.detail}</p><div className="answer-value">{a.intent==='color'&&<span className="color-inline" style={{background:a.value}}/>}{a.value}</div><button className="text-btn" onClick={()=>copy(a.value!)}><Copy size={14}/>Copy answer</button></div>:null;})()}
+          <div className="results-grid"><section><div className="section-heading"><h2>Selected for your search</h2><span className="source-label">{searchData?`${searchData.providers.filter(p=>p.status==='ok'&&p.count>0).length} CONTRIBUTING SOURCES`:'UNIFIED FEED'}</span></div>
+            {knowledgeStatus==='loading'?<div aria-live="polite" aria-label="Loading combined search results">{[1,2,3].map(n=><div key={n} className="result-skeleton"><span/><span/><span/></div>)}</div>:knowledge.length?<div className="knowledge-list">{knowledge.map((k,index)=><article className="knowledge-result" key={k.url}><div className="result-source"><span className="result-rank">{String(index+1).padStart(2,'0')}</span><span>{k.domain}<small>{k.sources.join(' + ')}</small></span><button className="icon-btn" aria-label={`Save ${k.title}`} onClick={()=>prepareSave(k.url,k.title)}><Bookmark size={16}/></button></div><a href={k.url} target={settings.openInNewTab?'_blank':undefined} rel="noopener noreferrer">{k.title}<ArrowUpRight size={17}/></a><p>{k.extract||'Open the source to explore this result.'}</p><div className="rank-reason"><Sparkles size={11}/>{k.reason}</div></article>)}</div>:<div className="empty-state compact-empty"><Globe2 size={27}/><h3>{knowledgeStatus==='error'?'Search is unavailable':searchData?.providers.every(p=>p.status!=='ok')?'Sources couldn’t be reached':'No matches from the available sources'}</h3><p>{knowledgeStatus==='error'?searchError:searchData?.providers.every(p=>p.status!=='ok')?'No source returned a successful response. Try again in a moment.':'Try a broader query. Unconnected web providers cannot contribute results yet.'}</p><button className="secondary-btn" onClick={()=>setSearchAttempt(n=>n+1)}><RefreshCw size={15}/>Try again</button></div>}
+          </section><aside className="results-aside"><div className="section-heading"><h2>Behind your results</h2></div><div className="provider-status-list">{knowledgeStatus==='loading'?<p>Checking sources in parallel…</p>:searchData?searchData.providers.map(p=><div key={p.id}><span className={`provider-state-dot ${p.status==='ok'?'connected':''}`}/><span><strong>{p.name}</strong><small>{p.status==='not_configured'?'Not connected':p.status==='unavailable'?'Temporarily unavailable':`${p.count} matches · ${p.kind==='knowledge'?'knowledge source':'web search'}`}</small></span></div>):<p>No source status available.</p>}</div><div className="privacy-note"><ShieldCheck size={20}/><strong>How “best” is picked.</strong><p>Provider ranking and cross-source agreement come first, with a small query-match boost and domain diversity. Ranking is a relevance heuristic, not a guarantee of accuracy.</p><p>Queries are sent to connected providers. Loxiro does not store searches on the server.</p></div></aside></div>
+          {searchData&&<details className="mobile-source-details"><summary>Sources & ranking</summary>{searchData.providers.map(p=><p key={p.id}><strong>{p.name}</strong> — {p.status==='ok'?`${p.count} matches`:p.status==='not_configured'?'Not connected':'Unavailable'}</p>)}<p>Ranked by provider position, agreement, query match, and domain diversity. Rankings are not accuracy guarantees.</p></details>}
           <section className="related"><h2>Follow the thread</h2><div>{relatedSearches(submitted).map(q=><button key={q} onClick={()=>search(q)}><Search size={15}/>{q}<ArrowUpRight size={15}/></button>)}</div></section>
         </div>}
 
@@ -238,11 +251,11 @@ export default function App() {
         {screen==='settings'&&<>
           {pageHeading('MAKE YOURSELF AT HOME','A little more you.','Thoughtful defaults. Just enough control.')}
           <div className="settings-layout"><section className="settings-card"><h2><Palette size={17}/>Appearance</h2><div className="setting-row"><div><strong>Your kind of light</strong><p>A calm palette, day or night.</p></div><div className="segmented">{[{id:'light',icon:Sun},{id:'dark',icon:Moon},{id:'system',icon:Monitor}].map(t=><button key={t.id} aria-label={`${t.id} theme`} aria-pressed={settings.theme===t.id} className={settings.theme===t.id?'active':''} onClick={()=>setSettings(s=>({...s,theme:t.id as Settings['theme']}))}><t.icon size={17}/><span>{t.id}</span></button>)}</div></div><Toggle title="Reduce motion" description="Keep things still and simple." checked={settings.reduceMotion} onChange={v=>setSettings(s=>({...s,reduceMotion:v}))}/></section>
-          <section className="settings-card"><h2><Search size={17}/>Search & browsing</h2><div className="setting-row"><div><strong>Your default engine</strong><p>Where every new search begins.</p></div><select aria-label="Default search engine" value={settings.defaultEngine} onChange={e=>{const v=e.target.value as EngineId;setSettings(s=>({...s,defaultEngine:v}));setEngine(v);}}>{WEB_ENGINES.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></div><Toggle title="Open links in a new tab" description="Keep Loxiro right where you left it." checked={settings.openInNewTab} onChange={v=>setSettings(s=>({...s,openInNewTab:v}))}/><Toggle title="Remember recent searches" description="Saved on this device. Never sent to us." checked={settings.showRecents} onChange={v=>setSettings(s=>({...s,showRecents:v}))}/></section>
+          <section className="settings-card"><h2><Search size={17}/>Search & browsing</h2><Toggle title="Open links in a new tab" description="Keep Loxiro right where you left it." checked={settings.openInNewTab} onChange={v=>setSettings(s=>({...s,openInNewTab:v}))}/><Toggle title="Remember recent searches" description="Saved on this device. Never sent to us." checked={settings.showRecents} onChange={v=>setSettings(s=>({...s,showRecents:v}))}/></section>
           <section className="settings-card"><h2><Download size={17}/>Downloads</h2><div className="setting-row"><div><strong>Concurrent downloads</strong><p>Balance your queue with your connection.</p></div><select aria-label="Concurrent downloads" value={settings.concurrency} onChange={e=>setSettings(s=>({...s,concurrency:Number(e.target.value)}))}>{[1,2,3,4].map(n=><option key={n} value={n}>{n} at a time</option>)}</select></div></section>
           <section className="settings-card"><h2><ShieldCheck size={17}/>Your data</h2><div className="setting-row"><div><strong>Take it with you</strong><p>Export settings, spaces, and searches as JSON.</p></div><button className="secondary-btn small" onClick={exportData}><Download size={15}/>Export</button></div><div className="setting-row"><div><strong>A fresh start</strong><p>Clear local searches, saved links, settings, and transfer history.</p></div><button className="text-btn danger-text" onClick={()=>setModal('clear')}>Clear all data</button></div></section>
           <section className="install-card"><span className="logo-icon"><span/></span><div><h3>A place on your home screen.</h3><p>Keep Loxiro a tap away. Install as a lightweight web app.</p></div><button className="secondary-btn" onClick={installApp}><Smartphone size={16}/>{install?'Install Loxiro':'How to install'}</button>{installHelp&&<p className="install-help">On iPhone: Safari → Share → Add to Home Screen. On Android or desktop: use your browser menu → Install app / Add to Home Screen. Installation requires HTTPS and a supported browser.</p>}</section>
-          <div className="about-footer"><span className="wordmark">Loxiro<span className="wordmark-dot">.</span></span><p>A calmer corner of the internet.<br/>v0.2 · Search companion PWA, not a standalone rendering engine.</p><a href="/plan.html" target="_blank" rel="noopener noreferrer">The original plan<ArrowUpRight size={13}/></a></div></div>
+          <div className="about-footer"><span className="wordmark">Loxiro<span className="wordmark-dot">.</span></span><p>A calmer corner of the internet.<br/>v0.3 · Search companion PWA, not a standalone rendering engine.</p><a href="/plan.html" target="_blank" rel="noopener noreferrer">The original plan<ArrowUpRight size={13}/></a></div></div>
         </>}
       </main>
     </div>

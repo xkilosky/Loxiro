@@ -10,3 +10,8 @@ dist/
 # Editor / OS
 .DS_Store
 Thumbs.db
+
+# Server-only search credentials
+.env
+.env.*
+!.env.example

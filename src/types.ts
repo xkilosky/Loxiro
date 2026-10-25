@@ -112,3 +112,26 @@ export interface SmartAnalysis {
   bang?: Bang;
   cleanQuery: string;
 }
+
+export interface UnifiedResult {
+  title: string;
+  url: string;
+  domain: string;
+  extract: string;
+  sources: string[];
+  reason: string;
+}
+export interface SearchProviderState {
+  id: string;
+  name: string;
+  kind: 'web' | 'knowledge';
+  status: 'ok' | 'not_configured' | 'unavailable';
+  count: number;
+}
+export interface UnifiedSearchResponse {
+  query: string;
+  results: UnifiedResult[];
+  providers: SearchProviderState[];
+  limitedWebCoverage: boolean;
+  ranking: string;
+}

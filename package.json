@@ -1,6 +1,6 @@
 {
   "name": "loxiro",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Loxiro — a fast, calm, smart search browser for the web",
@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "preview:plan": "python3 scripts/generate-preview.py",
     "test": "vitest run",
-    "test:browser": "node scripts/browser-smoke.mjs"
+    "test:browser": "node scripts/browser-smoke.mjs",
+    "dev:api": "node --env-file-if-exists=.env.local server/dev.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.1.1",
@@ -32,5 +33,8 @@
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
     "vitest": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
