@@ -75,3 +75,8 @@ body{background:var(--bg);color:var(--ink)}
 @media(max-width:600px){.workspace-bar{padding:7px 12px;gap:5px}.workspace-tab{flex-basis:156px}.workspace-tab.pinned{flex-basis:140px}.workspace-tab-select{min-height:40px}.workspace-tab-close{min-width:32px;min-height:40px}.workspace-controls .icon-btn,.workspace-manager-btn{min-height:40px}.workspace-controls{gap:0}.workspace-manager-btn{padding:8px}.tab-manager-row{flex-wrap:wrap;padding:8px}.tab-manager-select{flex-basis:100%;width:100%}.tab-manager-actions{margin-left:44px;gap:5px;flex-wrap:wrap}.tab-manager-actions .icon-btn{min-width:36px;min-height:36px}.tab-manager-list{max-height:37dvh}.tab-manager-toolbar{gap:14px}.tab-manager-toolbar .text-btn{font-size:10px}}
 .tab-filter:focus-within{outline:2px solid var(--accent);outline-offset:2px}
 .tab-filter input:focus{outline:none;outline-offset:0}
+
+/* Android owns the only omnibox; hosted Home/results contain no duplicate input. */
+.native-search-hint{margin:24px auto 0;max-width:320px;color:var(--muted);font-size:13px;line-height:1.7}
+.native-search-summary h1{font-size:24px;line-height:1.35;overflow-wrap:anywhere}
+.native-search-summary p{margin-top:8px;color:var(--muted);font-size:12px;line-height:1.7}

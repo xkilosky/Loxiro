@@ -28,7 +28,7 @@ No JavaScript-to-native interface, native filesystem bridge, remote native-code 
 
 This is an **early WebView browser preview, not a hardened Chrome replacement**. Some OAuth/sign-ins reject embedded WebViews. File upload, camera/mic, geolocation, full-screen video and blob/data exports are unsupported. Background WebViews receive `onPause`, not a guaranteed full process freeze. Direct HTTP(S) downloads use Android Download Manager after explicit confirmation, without forwarding session cookies. They do **not** use the web app's 8–32-part downloader. Blob downloads/JSON and text exports are web-only in this preview; use the original source in an external browser for unsupported workflows. The app requests only Internet permission; no broad storage/camera/mic permission is added.
 
-The hosted app recognizes the `LoxiroAndroid/0.7` user-agent presentation marker and hides its *web workspace* tab strip, avoiding two competing tab switchers. The marker grants no privileges, and other sites receive no native bridge. Native browser controls remain visible above the entire WebView.
+The hosted app recognizes the `LoxiroAndroid/0.7` user-agent presentation marker and hides its *web workspace* tab strip and its Home/results search inputs, avoiding duplicate controls. The native top address bar is the only search/URL input; Home shows a short hint and results show the current query as a heading. The ordinary PWA keeps its own search input. The marker grants no privileges, and other sites receive no native bridge. Native browser controls remain visible above the entire WebView.
 
 ## Verification
 
