@@ -17,7 +17,7 @@ The **Android browser preview** GitHub workflow builds an installable debug APK 
 
 ## Native tabs
 
-- Native address/search field, back/forward/reload, always-available tab strip, new/close/switch, searchable overview, pin/duplicate/reorder, reopen last closed, and confirmed bulk close.
+- A single **56dp toolbar** with back, address/search, tab count and menu leaves the rest of the screen for websites. Tap the tab count for the searchable tab list and **New tab**; close/switch, pin/duplicate/reorder, reopen and bulk close remain available. Home, forward and reload/stop live in the overflow menu. All persistent touch targets are 48dp; no always-expanded tab strip.
 - Up to **12 website tabs**, last **10 closed URLs** restorable. Only the latest **3 WebViews** stay live to bound memory; evicted tabs reload their URL. Back history, forms, JS state and scroll position are **not** preserved after eviction/process recreation.
 - Session URLs/titles/pins are app-private SharedPreferences metadata. Native Clear browser data deletes tab metadata, cookies, WebStorage and WebView cache; downloaded public files stay. Native sessions are separate from the PWA's local workspace. Normal cookies are shared across this app's WebViews; third-party cookies are disabled.
 - Searches use the existing hosted Loxiro unified search. Website requests originate from the Android device and use Android System WebView, not the search server. Internet access and a current Android System WebView are required. Loxiro's existing provider/key limitations remain unchanged.

@@ -6,6 +6,10 @@ import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.Intent;
 import android.graphics.Color;
+import android.content.res.ColorStateList;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.graphics.Insets;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -41,7 +45,6 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
-import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
@@ -59,18 +62,15 @@ public final class BrowserActivity extends Activity {
     private TabSession session;
     private SessionStore store;
     private String home=UrlPolicy.HOME;
-    private LinearLayout strip;
-    private HorizontalScrollView stripScroll;
     private FrameLayout content;
     private EditText address;
     private TextView errorBanner;
-    private Button tabCount, back, forward, reload;
+    private Button tabCount, back;
     private ProgressBar progress;
     private AlertDialog overview;
     private LinearLayout overviewRows;
     private EditText overviewFilter;
     private boolean destroying, clearInProgress;
-    private String stripSignature="";
 
     private static final class Page {
         final String id;
@@ -98,10 +98,13 @@ public final class BrowserActivity extends Activity {
     private Button button(String text,String label,View.OnClickListener action) {
         Button b=new Button(this);b.setText(text);b.setTextColor(INK);b.setTextSize(14);b.setAllCaps(false);
         b.setContentDescription(label);b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight(dp(48));b.setMinimumHeight(dp(48));
-        b.setPadding(dp(9),0,dp(9),0);b.setOnClickListener(action);return b;
+        b.setPadding(dp(9),0,dp(9),0);b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x225368e8),surface(Color.TRANSPARENT,14),null));b.setOnClickListener(action);return b;
+    }
+    private GradientDrawable surface(int color,int radius) {
+        GradientDrawable shape=new GradientDrawable();shape.setColor(color);shape.setCornerRadius(dp(radius));return shape;
     }
     private void buildChrome() {
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(BG);
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(BG);root.setFocusableInTouchMode(true);root.requestFocus();
         if(Build.VERSION.SDK_INT>=30) {
             getWindow().setDecorFitsSystemWindows(false);
             root.setOnApplyWindowInsetsListener((v,insets)->{
@@ -111,17 +114,11 @@ public final class BrowserActivity extends Activity {
         } else {
             root.setFitsSystemWindows(true);getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         }
-        LinearLayout top=row();top.setPadding(dp(8),0,dp(8),0);
-        Button brand=button("Loxiro ·","Loxiro home",v->navigate(home));brand.setTextColor(ACCENT);brand.setTypeface(null,Typeface.BOLD);
-        top.addView(brand,new LinearLayout.LayoutParams(0,dp(48),1));
-        Button add=button("+","New website tab",v->addTab(home,true));add.setId(R.id.new_tab);top.addView(add);
-        tabCount=button("1","Manage website tabs",v->showOverview());tabCount.setId(R.id.tab_count);top.addView(tabCount);
-        top.addView(button("⋮","Browser options",v->showOptions()));root.addView(top);
-        stripScroll=new HorizontalScrollView(this);stripScroll.setHorizontalScrollBarEnabled(false);strip=new LinearLayout(this);
-        strip.setId(R.id.tab_strip);stripScroll.addView(strip);root.addView(stripScroll,new LinearLayout.LayoutParams(-1,dp(48)));
-        LinearLayout navigation=row();navigation.setPadding(dp(6),0,dp(6),0);
-        back=button("‹","Back",v->handlePageBack());forward=button("›","Forward",v->{Page p=activePage();if(p!=null&&p.view.canGoForward())p.view.goForward();});
-        navigation.addView(back);navigation.addView(forward);
+        // One 56dp row regardless of tab count. The tab list is an on-demand dialog,
+        // never a second persistent toolbar or an overlay on website content.
+        LinearLayout navigation=row();navigation.setId(R.id.browser_toolbar);navigation.setPadding(dp(4),dp(4),dp(4),dp(4));
+        back=button("‹","Back",v->handlePageBack());back.setTextSize(26);
+        navigation.addView(back,new LinearLayout.LayoutParams(dp(48),dp(48)));
         address=new EditText(this);address.setId(R.id.address);address.setSingleLine(true);address.setSelectAllOnFocus(true);
         address.setTextSize(13);address.setHint("Search or enter website");address.setContentDescription("Address or search");
         address.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(4096)});
@@ -131,10 +128,16 @@ public final class BrowserActivity extends Activity {
                 navigateInput();return true;
             }return false;
         });
+        address.setBackground(surface(0xffedf0f6,16));address.setPadding(dp(12),0,dp(8),0);
         navigation.addView(address,new LinearLayout.LayoutParams(0,dp(48),1));
-        navigation.addView(button("Go","Go to address",v->navigateInput()));
-        reload=button("↻","Reload",v->{Page p=activePage();if(p!=null&&p.loading)p.view.stopLoading();else reloadActive();});navigation.addView(reload);root.addView(navigation);
-        progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(100);root.addView(progress,new LinearLayout.LayoutParams(-1,dp(3)));
+        tabCount=button("1","Manage website tabs",v->showOverview());tabCount.setId(R.id.tab_count);
+        tabCount.setTypeface(null,Typeface.BOLD);tabCount.setTextColor(ACCENT);
+        GradientDrawable counter=surface(0xffeef0ff,7);counter.setStroke(dp(1),ACCENT);
+        tabCount.setBackground(new RippleDrawable(ColorStateList.valueOf(0x225368e8),new InsetDrawable(counter,dp(10)),null));
+        navigation.addView(tabCount,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        navigation.addView(button("⋮","Browser options",v->showOptions()),new LinearLayout.LayoutParams(dp(48),dp(48)));
+        root.addView(navigation,new LinearLayout.LayoutParams(-1,dp(56)));
+        progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(100);root.addView(progress,new LinearLayout.LayoutParams(-1,dp(2)));
         errorBanner=new TextView(this);errorBanner.setTextSize(12);errorBanner.setTextColor(0xff9a342f);errorBanner.setPadding(dp(12),dp(8),dp(12),dp(8));errorBanner.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);root.addView(errorBanner);
         content=new FrameLayout(this);content.setId(R.id.web_content);root.addView(content,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
     }
@@ -247,22 +250,9 @@ public final class BrowserActivity extends Activity {
         address.setTextColor(active.url.regionMatches(true,0,"http:",0,5)?0xff9a342f:INK);
         address.setContentDescription("Address or search"+(active.url.regionMatches(true,0,"http:",0,5)?" — not secure":""));
         tabCount.setText(String.valueOf(session.tabs.size()));tabCount.setContentDescription("Manage website tabs ("+session.tabs.size()+")");
-        back.setEnabled(page!=null&&!page.crashed&&page.view.canGoBack());forward.setEnabled(page!=null&&!page.crashed&&page.view.canGoForward());
-        reload.setText(page!=null&&page.loading?"×":"↻");reload.setContentDescription(page!=null&&page.loading?"Stop loading":"Reload");
+        back.setEnabled(page!=null&&!page.crashed&&page.view.canGoBack());
         progress.setProgress(page==null?0:page.progress);progress.setVisibility(page!=null&&page.loading?View.VISIBLE:View.INVISIBLE);
         String error=page==null?"":page.error;errorBanner.setText(error);errorBanner.setVisibility(error.isEmpty()?View.GONE:View.VISIBLE);
-        StringBuilder signature=new StringBuilder(session.activeId);
-        for(TabSession.Tab tab:session.tabs)signature.append('|').append(tab.id).append(tab.pinned).append(tab.label());
-        if(signature.toString().equals(stripSignature))return;
-        stripSignature=signature.toString();strip.removeAllViews();
-        for(TabSession.Tab tab:session.tabs){
-            LinearLayout cell=row();boolean selected=tab.id.equals(session.activeId);cell.setBackgroundColor(selected?0xffeef0ff:Color.WHITE);
-            Button pick=button((tab.pinned?"◆ ":"")+tab.label(),"Switch to "+tab.label(),v->select(tab.id));pick.setTextSize(12);pick.setTextColor(selected?ACCENT:MUTED);pick.setSingleLine(true);pick.setEllipsize(TextUtils.TruncateAt.END);
-            pick.setOnLongClickListener(v->{showTabOptions(tab.id);return true;});cell.addView(pick,new LinearLayout.LayoutParams(dp(136),dp(48)));
-            cell.addView(button("×","Close "+tab.label(),v->closeTab(tab.id)));
-            LinearLayout.LayoutParams layout=new LinearLayout.LayoutParams(-2,dp(48));layout.setMargins(dp(3),0,dp(3),0);strip.addView(cell,layout);
-            if(selected)cell.post(()->{if(!destroying)stripScroll.smoothScrollTo(Math.max(0,cell.getLeft()-dp(24)),0);});
-        }
     }
     private void closeTab(String id) {
         if(clearInProgress)return;
@@ -286,21 +276,23 @@ public final class BrowserActivity extends Activity {
     private void toast(String text){Toast.makeText(this,text,Toast.LENGTH_LONG).show();}
     private void showOverview() {
         if(clearInProgress)return;
-        LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(16),0,dp(16),dp(8));
+        address.clearFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(address.getWindowToken(),0);
+        LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(16),0,dp(16),dp(8));body.setFocusableInTouchMode(true);body.requestFocus();
         overviewFilter=new EditText(this);overviewFilter.setSingleLine(true);overviewFilter.setHint("Find website tab");overviewFilter.setContentDescription("Find website tab");body.addView(overviewFilter);
+        Button add=button("+  New tab","New website tab",v->{dismissOverview();addTab(home,true);});add.setId(R.id.new_tab);add.setTextColor(ACCENT);body.addView(add);
         Button reopen=button("Reopen last closed ("+session.closed.size()+")","Reopen last closed website tab",v->{TabSession.Tab tab=session.reopen();if(tab!=null){dismissOverview();select(tab.id);}else toast("No closed tabs, or the tab limit has been reached.");});body.addView(reopen);
-        ScrollView scroll=new ScrollView(this);overviewRows=new LinearLayout(this);overviewRows.setOrientation(LinearLayout.VERTICAL);scroll.addView(overviewRows);body.addView(scroll,new LinearLayout.LayoutParams(-1,dp(300)));
-        TextView note=new TextView(this);note.setText("12 tabs maximum · Last 10 closed tabs can reopen. Long-press a tab for pin, duplicate and reorder. Only the latest 3 page views stay in memory; others reload their URL.");note.setTextSize(12);note.setPadding(0,dp(12),0,dp(8));body.addView(note);
+        ScrollView scroll=new ScrollView(this);overviewRows=new LinearLayout(this);overviewRows.setOrientation(LinearLayout.VERTICAL);scroll.addView(overviewRows);body.addView(scroll,new LinearLayout.LayoutParams(-1,dp(Math.min(300,Math.max(96,getResources().getConfiguration().screenHeightDp-300)))));
+        TextView note=new TextView(this);note.setText("Long-press a tab to pin, duplicate or reorder. Up to 12 tabs.");note.setTextSize(12);note.setPadding(0,dp(12),0,dp(8));body.addView(note);
         overviewFilter.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int start,int count,int after){}public void onTextChanged(CharSequence s,int start,int before,int count){refreshOverview();}public void afterTextChanged(Editable e){}});
         overview=new AlertDialog.Builder(this).setTitle("Website tabs").setView(body).setPositiveButton("Done",null).create();
-        overview.setOnDismissListener(d->{overview=null;overviewRows=null;overviewFilter=null;});refreshOverview();overview.show();
+        overview.setOnDismissListener(d->{overview=null;overviewRows=null;overviewFilter=null;});refreshOverview();overview.show();overview.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
     }
     private void dismissOverview(){if(overview!=null)overview.dismiss();}
     private void refreshOverview() {
         if(overviewRows==null)return;overviewRows.removeAllViews();String q=overviewFilter.getText().toString().toLowerCase(java.util.Locale.ROOT);
         for(TabSession.Tab tab:session.tabs){
             if(!(tab.label()+" "+tab.url).toLowerCase(java.util.Locale.ROOT).contains(q))continue;
-            LinearLayout line=row();Button pick=button((tab.pinned?"◆ ":"")+(tab.id.equals(session.activeId)?"● ":"")+tab.label(),"Go to "+tab.label(),v->{dismissOverview();select(tab.id);});
+            LinearLayout line=row();line.setBackground(surface(tab.id.equals(session.activeId)?0xffeef0ff:Color.WHITE,14));Button pick=button((tab.pinned?"◆ ":"")+(tab.id.equals(session.activeId)?"● ":"")+tab.label(),"Go to "+tab.label(),v->{dismissOverview();select(tab.id);});
             pick.setSingleLine(true);pick.setEllipsize(TextUtils.TruncateAt.END);pick.setOnLongClickListener(v->{showTabOptions(tab.id);return true;});line.addView(pick,new LinearLayout.LayoutParams(0,dp(48),1));
             line.addView(button("×","Close "+tab.label(),v->closeTab(tab.id)));overviewRows.addView(line);
         }
@@ -316,7 +308,11 @@ public final class BrowserActivity extends Activity {
         }).show();
     }
     private void showOptions() {
-        new AlertDialog.Builder(this).setTitle("Loxiro Android Preview").setItems(new String[]{"Website tabs","Reopen last closed tab","Open page in external browser","Android downloads","Close unpinned tabs","Clear browser data","About this preview"},(d,which)->{
+        new AlertDialog.Builder(this).setTitle("Loxiro Android Preview").setItems(new String[]{"Website tabs","Reopen last closed tab","Open page in external browser","Android downloads","Close unpinned tabs","Clear browser data","About this preview","Home","Forward","Reload / stop","New tab"},(d,which)->{
+            if(which==7)navigate(home);
+            if(which==8){Page p=activePage();if(p!=null&&!p.crashed&&p.view.canGoForward())p.view.goForward();}
+            if(which==9){Page p=activePage();if(p!=null&&!p.crashed&&p.loading)p.view.stopLoading();else reloadActive();}
+            if(which==10)addTab(home,true);
             if(which==0)showOverview();
             if(which==1){TabSession.Tab t=session.reopen();if(t!=null)select(t.id);else toast("No closed tab, or maximum tabs reached.");}
             if(which==2){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(session.active().url)));}catch(Exception e){toast("No external browser is available.");}}

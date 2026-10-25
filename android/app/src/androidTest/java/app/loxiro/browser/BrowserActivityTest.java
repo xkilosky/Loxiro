@@ -68,18 +68,42 @@ public class BrowserActivityTest {
         },Press.FINGER));
         awaitTitle("Second fixture");scenario.onActivity(a->{assertEquals(2,a.nativeTabCount());assertEquals(origin+"/two",a.activeUrl());});
         onView(withId(R.id.tab_count)).check(matches(isDisplayed()));onView(withId(R.id.address)).check(matches(isDisplayed()));
-        onView(withContentDescription("Switch to First fixture")).perform(scrollTo(),click());awaitTitle("First fixture");
+        onView(withId(R.id.tab_count)).perform(click());
+        onView(withContentDescription("Go to First fixture")).perform(scrollTo(),click());awaitTitle("First fixture");
         scenario.onActivity(a->assertEquals(origin+"/one",a.activeUrl()));
-        onView(withContentDescription("Switch to Second fixture")).perform(scrollTo(),click());awaitTitle("Second fixture");
+        onView(withId(R.id.tab_count)).perform(click());
+        onView(withContentDescription("Go to Second fixture")).perform(scrollTo(),click());awaitTitle("Second fixture");
         scenario.recreate();awaitTitle("Second fixture");scenario.onActivity(a->{assertEquals(2,a.nativeTabCount());assertEquals(origin+"/two",a.activeUrl());});
-        onView(withId(R.id.tab_count)).check(matches(isDisplayed()));
+        onView(withId(R.id.tab_count)).check(matches(isDisplayed()));assertCompactChrome();
     }
     @Test public void enteringAWebsiteKeepsChromeAndUnsafeInputCannotEscape() {
         onView(withId(R.id.address)).perform(replaceText(origin+"/two"),pressImeActionButton());awaitTitle("Second fixture");
-        onView(withId(R.id.tab_count)).check(matches(isDisplayed()));onView(withId(R.id.new_tab)).check(matches(isDisplayed()));
+        onView(withId(R.id.tab_count)).check(matches(isDisplayed()));assertCompactChrome();
         onView(withId(R.id.address)).perform(replaceText("javascript:alert(1)"),pressImeActionButton());scenario.onActivity(a->assertEquals(origin+"/two",a.activeUrl()));
+        onView(withId(R.id.tab_count)).perform(click());
         onView(withId(R.id.new_tab)).perform(click());awaitTitle("First fixture");scenario.onActivity(a->assertEquals(2,a.nativeTabCount()));
+        onView(withId(R.id.tab_count)).perform(click());
         onView(withContentDescription("Close First fixture")).perform(scrollTo(),click());awaitTitle("Second fixture");scenario.onActivity(a->assertEquals(1,a.nativeTabCount()));
+    }
+    private void assertCompactChrome() {
+        scenario.onActivity(a->{
+            View toolbar=a.findViewById(R.id.browser_toolbar),content=a.findViewById(R.id.web_content);
+            float density=a.getResources().getDisplayMetrics().density;
+            assertEquals("Only one 56dp toolbar",56*density,toolbar.getHeight(),1.0);
+            assertEquals("Website begins immediately below toolbar and 2dp progress",toolbar.getBottom()+Math.round(2*density),content.getTop());
+            View parent=(View)content.getParent();
+            int available=parent.getHeight()-parent.getPaddingTop()-parent.getPaddingBottom();
+            assertTrue("Websites must receive most of the available screen",content.getHeight()>available*0.65f);
+        });
+    }
+    @Test public void twelveTabsDoNotConsumeMoreWebsiteSpace() {
+        assertCompactChrome();
+        for(int i=1;i<12;i++){
+            onView(withId(R.id.tab_count)).perform(click());
+            onView(withId(R.id.new_tab)).perform(click());awaitTitle("First fixture");
+        }
+        scenario.onActivity(a->assertEquals(12,a.nativeTabCount()));assertCompactChrome();
+        scenario.recreate();awaitTitle("First fixture");assertCompactChrome();
     }
     @After public void cleanup() throws Exception {if(scenario!=null)scenario.close();if(server!=null)server.close();if(worker!=null)worker.shutdownNow();}
 }
