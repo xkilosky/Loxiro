@@ -28,3 +28,14 @@ body{background:var(--bg);color:var(--ink)}
 .source-routing-note{color:var(--muted);font-size:10px;line-height:1.8;margin:0 0 14px}
 
 .web-setup-details{font-size:11px;line-height:1.8;margin-top:10px}.web-setup-details summary{cursor:pointer;color:var(--ink);font-weight:600}.web-setup-details p{margin-top:10px}.web-setup-details code{overflow-wrap:anywhere}.web-setup-details a{display:inline-flex;align-items:center;gap:5px;color:var(--accent);margin-top:10px;text-decoration:underline}.result-kind{border:1px solid var(--line);border-radius:4px;padding:2px 5px;color:var(--ink);font-size:9px}
+
+/* Smart Download: a per-file connection limit, separate from the file queue. */
+.download-smart-panel{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:22px 24px;margin:0 0 24px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.download-smart-panel>div{display:flex;align-items:center;gap:15px;min-width:0}
+.download-smart-panel strong{font-size:14px}
+.download-smart-panel p{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.7;max-width:480px}
+.parts-select{display:flex;flex-direction:column;gap:7px;font-size:11px;font-weight:600;flex-shrink:0}
+.parts-select select{width:100%;max-width:240px;border:1px solid var(--line);border-radius:9px;padding:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:12px}
+.transfer-detail{display:flex;align-items:center;flex-wrap:wrap;gap:7px 10px;margin-top:9px;font-size:11px;color:var(--muted);line-height:1.6;overflow-wrap:anywhere}
+.transfer-mode{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;white-space:nowrap;color:var(--ink);font-weight:600}
+@media(max-width:600px){.download-smart-panel{align-items:stretch;flex-direction:column;padding:18px;gap:15px}.download-smart-panel>div{align-items:flex-start}.parts-select select{max-width:none}.download-row .download-info{min-width:0}.transfer-detail>span:last-child{width:100%}}

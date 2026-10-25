@@ -35,7 +35,7 @@ For local development run `npm run dev:api` in a second terminal. Optional secre
 - **Real source attribution:** results are obtained server-side from responding sources after submitting a query. No fabricated or demo results.
 - **Smart routing:** recognizes URLs, questions, code queries, calculations, colors, conversions, and bang shortcuts (`!yt`, `!w`, `!gh`, `!so`, and more).
 - **Smart tools:** safe arithmetic parser (no eval), unit conversion, HEX/RGB/HSL color studio, text counts/transforms/export. They work offline.
-- **Downloads:** streamed direct-file downloads, received bytes, actual transfer speed, concurrency control (1–4), cancel/retry, persisted transfer history. Includes a same-origin sample file to try.
+- **Smart Downloads:** verified HTTP byte-range downloads with up to 8, 16, or 32 parts per file (8 by default), size-adaptive part counts, ordered assembly, single-stream fallback, actual bytes/speed, 1–4 queued files at a time, a shared 32-request budget, cancel/retry, and persisted history. Includes a same-origin sample file to try. Browser connection limits still apply.
 - **Spaces:** create colored collections, save links, filter, delete, and copy. Deleting a space moves its links to Reading list.
 - **Settings:** light/dark/system theme, reduced motion, recent-history toggle, new-tab preference, JSON data export, clear data.
 - **PWA:** manifest, generated icons, offline app shell, browser installation instructions and native install prompt where supported.
@@ -88,7 +88,8 @@ src/styles/app.css            Responsive design system and both themes
 src/data/                     Engines, bangs, suggestions
 src/lib/smart.ts              Safe parser, conversions, color/intent logic
 src/lib/storage.ts            Persistence, URL checks, file helpers
-src/hooks/useDownloads.ts     Streaming download queue
+src/hooks/useDownloads.ts     Queue, cancellation, shared request budget
+src/lib/download.ts           Verified parallel byte-range transfer engine
 server/search.mjs             HTTP boundary and unified aggregation
 server/providers.mjs          17 API adapters (12 keyless, 3 free-key, 2 paid opt-ins)
 server/planner.mjs            Relevant source routing and fan-out cap
@@ -127,3 +128,16 @@ The app shows a clear **“Enable broader website search”** setup panel when n
 ### Website logos (v0.4.2)
 
 Search cards show each destination's favicon instead of numbered squares. Icons load lazily from DuckDuckGo's icon service using only the destination hostname, with a no-referrer policy; paths, search text and API keys are not sent. This third-party image service can see the requested domain and network metadata. A local globe remains visible while loading and replaces unavailable/blocked icons. The icon area has fixed dimensions to avoid layout shifts and a white backing for logo legibility in either theme. Icons are decorative; the adjacent domain and result title remain the accessible identification. There are no remote icon requests on Home.
+
+
+### Smart Download (v0.5)
+
+Open **Downloads → Parts per file** and select **8** (recommended), **16**, **32**, or **1** (single stream). The choice also lives in Settings and persists locally. Changes affect new transfers, not parts already running.
+
+- A `GET Range: bytes=0-0` probe checks actual support, known size, and an exposed **strong ETag**. A server that ignores Range and returns `200` is streamed directly without fetching the same whole file twice.
+- Eligible files use `min(selected limit, available queue budget, floor(size / 1 MiB))` balanced, adjacent ranges. Files under 2 MiB use one stream. There are at most 32 reserved request slots across the queue; unused slots are released after detection. This is a request/worker budget, **not 32 guaranteed TCP connections**: browser per-origin limits and HTTP/2/3 scheduling control network parallelism. A controlled Chromium HTTP/1.1 test observed 6 overlapping requests even with 32 parts.
+- Every part sends `If-Range` with the probe's strong ETag. Only exact `206` responses with the expected start/end/total, matching strong ETag and resolved URL, no visible content encoding, and exact byte count are assembled. Parts are placed in original byte order, regardless of completion order. If any part fails these checks, siblings are aborted, partial buffers discarded, and **one fresh normal GET** is attempted. Cancellation never triggers fallback or saving. No automatic part retry loop or persistent resume is claimed.
+- Cross-origin sources must allow the app origin (or `*` for these credential-free requests), `GET` and `OPTIONS`, and request headers `Range, If-Range`; expose response headers `Content-Range, ETag` (and `Content-Encoding` when present). Sources without a strong/exposed ETag or usable ranges fall back to one stream. Sources that block CORS entirely still need **Open source**. `Accept-Ranges` alone is not trusted. Authentication cookies are never sent, and this does not bypass DRM, access controls, or CORS.
+- Files are still buffered in memory, capped at **200 MiB (shown as 200 MB in the interface) per file**; simultaneous files can use more memory. Keep Loxiro open. No disk-streaming, background completion, pause/resume, or guaranteed speed multiplier is promised. More parts can be slower, especially on small files or saturated connections. No general internet acceleration benchmark has been performed.
+
+`npm test` includes range partitioning, 8/16/32-way concurrent requests, ordered SHA-256 comparisons, validator/range errors, truncation/overflow, fallback, limits, cancellation, retry, and queue-budget tests. `npm run test:downloads` uses a real local cross-origin HTTP server and browser, including CORS preflights and SHA-256 checks of **saved files**, not mocked fetch responses. It also checks failed-source fallback, active cancellation, honest CORS failure, preference persistence, light/dark accessibility, and responsive layout. This controlled fixture establishes correctness, **not real-world speed gains or arbitrary source compatibility**.

@@ -58,6 +58,7 @@ export interface Settings {
   theme: Theme;
   defaultEngine: EngineId;
   concurrency: number;
+  downloadParts: number;
   openInNewTab: boolean;
   showRecents: boolean;
   reduceMotion: boolean;
@@ -78,6 +79,10 @@ export interface DownloadTask {
   startedAt?: number;
   finishedAt?: number;
   error?: string;
+  mode?: 'checking' | 'single' | 'parallel';
+  parts?: number;
+  completedParts?: number;
+  transferNote?: string;
   generated?: boolean;
   size?: number;
 }

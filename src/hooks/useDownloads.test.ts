@@ -37,4 +37,49 @@ describe('real download queue',()=>{
     localStorage.setItem('loxiro:v2:downloads',JSON.stringify([{id:'old',status:'downloading',url:'https://example.com/file',filename:'file',received:20,total:100,speed:0,createdAt:1}]));
     const {result}=renderHook(()=>useDownloads(1));expect(result.current.tasks[0].status).toBe('cancelled');
   });
+  it('shares a 32-request reservation budget and starts the next file after cancellation',async()=>{
+    const fetcher=vi.fn().mockImplementation((_url:string, init:RequestInit)=>new Promise((_resolve,reject)=>{
+      init.signal!.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')),{once:true});
+    }));
+    vi.stubGlobal('fetch',fetcher);const {result}=renderHook(()=>useDownloads(4,32));
+    act(()=>{result.current.add('https://example.com/one','one');result.current.add('https://example.com/two','two');result.current.add('https://example.com/three','three');});
+    await waitFor(()=>expect(fetcher).toHaveBeenCalledOnce());
+    expect(result.current.tasks.filter(t=>t.status==='queued')).toHaveLength(2);
+    const active=result.current.tasks.find(t=>t.status==='downloading')!;
+    act(()=>result.current.cancel(active.id));
+    await waitFor(()=>expect(fetcher).toHaveBeenCalledTimes(2));
+    expect(result.current.tasks.find(t=>t.id===active.id)?.status).toBe('cancelled');expect(saveBlob).not.toHaveBeenCalled();
+  });
+  it('cleans up all active files on cancel all and does not save cancelled bytes',async()=>{
+    const signals:AbortSignal[]=[];
+    const fetcher=vi.fn().mockImplementation((_url:string, init:RequestInit)=>new Promise((_resolve,reject)=>{
+      signals.push(init.signal!);init.signal!.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')),{once:true});
+    }));
+    vi.stubGlobal('fetch',fetcher);const {result}=renderHook(()=>useDownloads(4,8));
+    act(()=>{for(let i=0;i<4;i++)result.current.add(`https://example.com/${i}`,'');});
+    await waitFor(()=>expect(fetcher).toHaveBeenCalledTimes(4));act(()=>result.current.cancelAll());
+    await waitFor(()=>expect(result.current.tasks.every(t=>t.status==='cancelled')).toBe(true));
+    expect(signals.every(s=>s.aborted)).toBe(true);expect(saveBlob).not.toHaveBeenCalled();
+  });
+  it('retries an error as a fresh transfer and clears stale error/progress',async()=>{
+    vi.stubGlobal('fetch',vi.fn().mockRejectedValueOnce(new TypeError('offline')).mockRejectedValueOnce(new TypeError('offline')).mockResolvedValueOnce(response()));
+    const {result}=renderHook(()=>useDownloads(1,8));act(()=>{result.current.add('https://example.com/file.bin','');});
+    await waitFor(()=>expect(result.current.tasks[0].status).toBe('error'));await act(async()=>{});
+    act(()=>result.current.retry(result.current.tasks[0].id));
+    await waitFor(()=>expect(result.current.tasks[0].status).toBe('done'));
+    expect(result.current.tasks[0].error).toBeUndefined();expect(saveBlob).toHaveBeenCalledOnce();expect(result.current.tasks[0].received).toBe(3);
+  });
+
+  it('releases unused part reservations when a source falls back to one stream',async()=>{
+    const fetcher=vi.fn().mockImplementation((_url:string, init:RequestInit)=>{
+      if(fetcher.mock.calls.length===1)return Promise.resolve(new Response(new ReadableStream({start(){}})));
+      return new Promise((_resolve,reject)=>init.signal!.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')),{once:true}));
+    });
+    vi.stubGlobal('fetch',fetcher);const {result}=renderHook(()=>useDownloads(2,32));
+    act(()=>{result.current.add('https://example.com/one','one');result.current.add('https://example.com/two','two');});
+    await waitFor(()=>expect(fetcher).toHaveBeenCalledTimes(2));
+    expect(result.current.tasks.filter(t=>t.status==='downloading')).toHaveLength(2);
+    act(()=>result.current.cancelAll());
+  });
+
 });
