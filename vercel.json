@@ -1,5 +1,6 @@
 {
   "framework": null,
   "buildCommand": "npm run build",
-  "installCommand": null
+  "installCommand": "npm install",
+  "cleanUrls": true
 }

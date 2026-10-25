@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Generate the self-contained Loxiro preview page and the downloadable bundle.
+"""Generate the self-contained original Loxiro plan page and the downloadable bundle.
 
 Run from the repository root:
     python3 scripts/generate-preview.py
     npm run build          # stages dist/ and .vercel/output/static/
 
-The generated index.html embeds the concept board (PNG), the editable SVG,
+The generated public/plan.html embeds the concept board (PNG), the editable SVG,
 the full plan (Markdown) and the downloadable ZIP as base64, so the page works
 from file:// or any static host with zero network requests.
 """
@@ -32,7 +32,7 @@ with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
     archive.writestr("loxiro-preview/docs/assets/loxiro-concept.svg", svg)
     archive.writestr("loxiro-preview/docs/assets/loxiro-concept.png", png)
 zip_bytes = buffer.getvalue()
-(ROOT / "loxiro-plan-preview.zip").write_bytes(zip_bytes)
+(ROOT / "public/loxiro-plan-preview.zip").write_bytes(zip_bytes)
 
 b64 = lambda data: base64.b64encode(data).decode("ascii")
 PNG, SVG, MD, ZIP = b64(png), b64(svg), b64(md), b64(zip_bytes)
@@ -151,7 +151,7 @@ page = (
     .replace("__MD__", json.dumps(MD))
     .replace("__ZIP__", json.dumps(ZIP))
 )
-(ROOT / "index.html").write_text(page, encoding="utf-8")
+(ROOT / "public/plan.html").write_text(page, encoding="utf-8")
 
 print(f"index.html: {len(page)} chars")
 print(f"loxiro-plan-preview.zip: {len(zip_bytes)} bytes")
