@@ -35,7 +35,8 @@ export function rankResults(batches, query, limit = 10) {
       row.sources.push(batch.provider);
       // Multiple vendors returning the same Google index are not independent votes.
       const family=batch.family||batch.provider;
-      const vote=1/(60+index+1), previous=row.votes.get(family)||0;
+      const weight=Number.isFinite(batch.weight)?Math.max(.5,Math.min(1.2,batch.weight)):1;
+      const vote=weight/(60+index+1), previous=row.votes.get(family)||0;
       row.score+=Math.max(0,vote-previous);
       row.votes.set(family,Math.max(previous,vote));
       row.bestRank = Math.min(row.bestRank, index+1);
@@ -50,9 +51,12 @@ export function rankResults(batches, query, limit = 10) {
   }).sort((a,b)=>b.score-a.score || a.url.localeCompare(b.url));
   const selected=[], deferred=[], domains=new Map();
   for (const row of rows) {
-    const count=domains.get(row.domain)||0;
+    // DOI is a resolver for many publishers, not a single publishing domain.
+    const prefix=row.domain==='doi.org'?new URL(row.url).pathname.split('/')[1].toLowerCase():'';
+    const group=prefix?`doi.org/${prefix}`:row.domain;
+    const count=domains.get(group)||0;
     if (count>=2) deferred.push(row);
-    else { selected.push(row); domains.set(row.domain,count+1); }
+    else { selected.push(row); domains.set(group,count+1); }
   }
   return [...selected,...deferred].slice(0,limit).map(({score,bestRank,votes,...row})=>row);
 }

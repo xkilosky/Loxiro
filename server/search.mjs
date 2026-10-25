@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { rankResults } from './rank.mjs';
 import {PROVIDERS} from './providers.mjs';
-import {planProviders} from './planner.mjs';
+import {planProviders,sourceWeight} from './planner.mjs';
 import {createProviderRuntime} from './runtime.mjs';
 
 const buckets=new Map();
@@ -25,7 +25,7 @@ export async function aggregateSearch(query, { env=process.env, providers=PROVID
     const response=await runtime.run(p,query,env);
     return{...meta,...response,count:response.results.length};
   }));
-  const results=rankResults(batches.map(p=>({provider:p.name,family:p.family,results:p.results})),query);
+  const results=rankResults(batches.map(p=>({provider:p.name,family:p.family,weight:sourceWeight(p,query),results:p.results})),query);
   return{query,results,providers:batches.map(({results,...p})=>p),topics:plan.topics,ranking:'reciprocal-rank-fusion',
     limitedWebCoverage:!batches.some(p=>p.kind==='web'&&p.status==='ok'&&p.count>0),durationMs:Date.now()-started};
 }

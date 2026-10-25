@@ -1,6 +1,6 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import {PROVIDERS} from './providers.mjs';
-import {planProviders,queryTopics} from './planner.mjs';
+import {planProviders,queryTopics,sourceWeight} from './planner.mjs';
 import {createProviderRuntime} from './runtime.mjs';
 import {ProviderError,json,retryDelay} from './transport.mjs';
 import {aggregateSearch} from './search.mjs';
@@ -48,6 +48,14 @@ describe('provider registry and normalization',()=>{
     expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({search_depth:'basic',auto_parameters:false,include_answer:false});
     expect(fetcher.mock.calls[0][1].headers.Authorization).toBe('Bearer server-only');
   });
+  it('keeps music discovery out of movie results and scopes archives to the requested medium',async()=>{
+    const fetcher=vi.fn(async()=>new Response('{}'));vi.stubGlobal('fetch',fetcher);
+    await PROVIDERS.find(p=>p.id==='itunes').run('Beatles music',{});
+    const apple=new URL(fetcher.mock.calls[0][0]);expect(apple.searchParams.get('media')).toBe('music');expect(apple.searchParams.get('term')).toBe('Beatles');
+    await PROVIDERS.find(p=>p.id==='archive').run('Tolkien books',{});
+    const archive=new URL(fetcher.mock.calls[1][0]);expect(archive.searchParams.get('q')).toBe('(title:"Tolkien" OR creator:"Tolkien") AND mediatype:texts');
+    await PROVIDERS.find(p=>p.id==='archive').run('Beatles music',{});expect(new URL(fetcher.mock.calls[2][0]).searchParams.get('q')).toContain('mediatype:audio');
+  });
   it('does not treat upstream JSON API errors as successful empty searches',async()=>{
     vi.stubGlobal('fetch',vi.fn(async()=>new Response('{"error":"Quota exceeded"}')));
     await expect(PROVIDERS.find(p=>p.id==='serpapi').run('test',{SERPAPI_API_KEY:'hidden'})).rejects.toThrow();
@@ -67,6 +75,11 @@ describe('relevant and bounded query planning',()=>{
     const p=planProviders('research cancer software books music history',PROVIDERS,env);
     expect(p.selected).toHaveLength(8);expect(p.selected).not.toContain('google');expect(p.selected).not.toContain('brave');
     expect(queryTopics('scarcity of capital')).not.toContain('code');
+  });
+  it('does not route biomedical research to technology discussion',()=>{
+    expect(planProviders('cancer immunotherapy research',PROVIDERS,{}).selected).not.toContain('hackernews');
+    expect(sourceWeight({id:'wikidata',kind:'knowledge'},'Beatles music')).toBeLessThan(sourceWeight({id:'wikipedia',kind:'knowledge'},'Beatles music'));
+    expect(sourceWeight({id:'crossref',kind:'research'},'quantum research papers')).toBeGreaterThan(sourceWeight({id:'crossref',kind:'research'},'quantum computing'));
   });
   it('does not call skipped, disabled, or unconfigured services',async()=>{
     const run=vi.fn();const d=await aggregateSearch('general',{providers:[{id:'paid',label:'Paid',paid:true,key:'KEY',kind:'web',run}],env:{KEY:'secret'}});
@@ -128,6 +141,11 @@ describe('safe transport and index agreement',()=>{
   it('rejects malformed or oversized JSON without returning it',async()=>{
     vi.stubGlobal('fetch',vi.fn(async()=>new Response('not json')));await expect(json('https://example.org')).rejects.toThrow();
     vi.stubGlobal('fetch',vi.fn(async()=>new Response('x'.repeat(1500001))));await expect(json('https://example.org')).rejects.toThrow();
+  });
+  it('does not demote different scholarly publishers just because they share a DOI resolver',()=>{
+    const papers=Array.from({length:4},(_,i)=>item('Quantum',`https://doi.org/10.${1000+i}/paper`));
+    const rows=rankResults([{provider:'Academic',results:papers},{provider:'Community',weight:.5,results:[item('Quantum','https://community.test')]}],'quantum',5);
+    expect(rows.slice(0,4).every(r=>r.domain==='doi.org')).toBe(true);
   });
   it('does not multiply ranking votes for the same Google index via different vendors',()=>{
     const rows=rankResults([{provider:'Vendor A',family:'google',results:[item('Same','https://same.test')]},{provider:'Vendor B',family:'google',results:[item('Same','https://same.test')]},{provider:'Independent A',results:[item('Other','https://other.test')]},{provider:'Independent B',results:[item('Other','https://other.test')]}],'quantum');

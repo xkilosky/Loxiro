@@ -43,3 +43,10 @@ User change: replace provider picking with one merged, ranked result feed.
 - API/UI distinguish skipped, unconfigured, explicitly disabled, unavailable, quota/cooldown, empty success, and cached success. Privacy text now explains short-lived in-memory snippets; HTTP no-store and no disk-persisted search history remain.
 - Tavily uses basic search with no automatic credit escalation or generated answer. SerpApi/Zenserp return Google organic results only. No accounts or billing changes are made. Credentials are not acquired or client-exposed.
 - Tests cover all 17 response shapes, routing, fan-out, secret exclusion, paid opt-in, cache expiry/eviction/coalescing, cooldown/recovery, filtering, malformed/oversized data and same-index vote dedup. Browser tests mock statuses/results deliberately, not source availability.
+
+## v0.4 validation
+
+- 102 unit/hook/backend tests pass, plus TypeScript checking, production build, staged serverless-module import, and `git diff --check`.
+- Chromium smoke passes unified feed/attribution, free-key/cached/cooldown statuses, save/persistence, Spaces, tools, real sample download, themes, results/Home/Settings axe checks, 360/390/768/1440 px overflow checks, runtime errors, service-worker/offline reload and offline calculation. API data is explicitly mocked in this browser suite.
+- Initial production checks returned real Wikipedia, Wikidata, Crossref, OpenAlex, Europe PMC, Stack Overflow, Internet Archive and Apple catalog data. DOI agreement between Europe PMC and OpenAlex produced a merged result with both source labels. DDG failed, Open Library timed out, and GitHub reported an upstream rate limit; these did not discard working sources. This is a spot check, not an uptime promise. Keyed web adapters remain unconfigured and cannot be live-verified without the user's credentials.
+- Live relevance review led to medium-specific Apple/Archive requests, lower catalog/community ranking priors, no HN fan-out for biomedical-only research, and DOI registrant-prefix diversity rather than treating every scholarly publisher as one domain. Three regressions cover those refinements.

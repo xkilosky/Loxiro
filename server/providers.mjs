@@ -1,4 +1,5 @@
 import {json,stripTags,describe,ProviderError} from './transport.mjs';
+import {queryTopics} from './planner.mjs';
 const enc=encodeURIComponent;
 const params=(base,values)=>{const u=new URL(base);for(const [k,v]of Object.entries(values))if(v!==undefined&&v!=='')u.searchParams.set(k,String(v));return u.href;};
 
@@ -37,11 +38,17 @@ export const PROVIDERS=[
     return(d.docs||[]).filter(r=>/^\/works\/OL\d+W$/.test(r.key)).map(r=>({title:r.title,url:`https://openlibrary.org${r.key}`,extract:describe(r.author_name?.join(', '),r.first_publish_year,'Book discovery and edition information from Open Library.')}));
   }},
   {id:'archive',label:'Internet Archive',kind:'archives',access:'keyless',topics:['archives','books','media'],minInterval:1100,lexical:true,async run(q,env){
-    const u=params('https://archive.org/advancedsearch.php',{q,rows:8,page:1,output:'json'});
+    const topics=queryTopics(q);
+    const medium=topics.includes('books')?'texts':/\b(music|songs?|albums?|podcast|recording)\b/i.test(q)?'audio':/\b(movies?|films?|documentary)\b/i.test(q)?'movies':null;
+    // Focus media/book discovery on title/creator instead of incidental credits in descriptions.
+    const core=q.replace(/\s+(?:books?|music|songs?|albums?|podcasts?|movies?|films?)\s*$/i,'').trim()||q;
+    const quoted='"'+core.replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"';
+    const search=medium?`(title:${quoted} OR creator:${quoted}) AND mediatype:${medium}`:q;
+    const u=params('https://archive.org/advancedsearch.php',{q:search,rows:8,page:1,output:'json'});
     const d=await json(u+'&fl[]=identifier&fl[]=title&fl[]=description&fl[]=mediatype&fl[]=year',{env});
     return(d.response?.docs||[]).filter(r=>r.identifier).map(r=>({title:r.title,url:`https://archive.org/details/${enc(r.identifier)}`,extract:stripTags(describe(r.mediatype,r.year,Array.isArray(r.description)?r.description.join(' '):r.description)).slice(0,700)}));
   }},
-  {id:'hackernews',label:'Hacker News',kind:'community',access:'keyless',topics:['technology','code','research'],minInterval:500,lexical:true,async run(q,env){
+  {id:'hackernews',label:'Hacker News',kind:'community',access:'keyless',topics:['technology','code'],minInterval:500,lexical:true,async run(q,env){
     const d=await json(params('https://hn.algolia.com/api/v1/search',{query:q,tags:'story',hitsPerPage:8}),{env});
     return(d.hits||[]).map(r=>({title:r.title,url:r.url||`https://news.ycombinator.com/item?id=${enc(r.objectID)}`,extract:stripTags(r.story_text)||describe('Discussed on Hacker News',r.points!==undefined?`${r.points} points`:null,r.num_comments!==undefined?`${r.num_comments} comments`:null)}));
   }},
@@ -56,9 +63,11 @@ export const PROVIDERS=[
     return(d.items||[]).map(r=>({title:r.full_name,url:r.html_url,extract:describe(r.description,r.language,`${r.stargazers_count||0} stars`)}));
   }},
   {id:'itunes',label:'Apple iTunes',kind:'media',access:'keyless',topics:['media'],minInterval:3100,lexical:true,async run(q,env){
-    const d=await json(params('https://itunes.apple.com/search',{term:q,limit:8,country:'US',media:'all',explicit:'No'}),{env});
+    const media=/\b(podcasts?)\b/i.test(q)?'podcast':/\b(audiobooks?)\b/i.test(q)?'audiobook':/\b(movies?|films?|cinema)\b/i.test(q)?'movie':'music';
+    const term=q.replace(/\s+(?:music|songs?|albums?|podcasts?|movies?|films?|audiobooks?)\s*$/i,'').trim()||q;
+    const d=await json(params('https://itunes.apple.com/search',{term,limit:8,country:'US',media,explicit:'No'}),{env});
     // Only metadata and direct store links; no preview audio/artwork is reused.
-    return(d.results||[]).map(r=>({title:r.trackName||r.collectionName||r.artistName,url:r.trackViewUrl||r.collectionViewUrl||r.artistViewUrl,extract:describe(r.artistName,r.kind||r.wrapperType,r.primaryGenreName,'View in Apple’s store; purchases may cost money.')}));
+    return(d.results||[]).slice(0,8).map(r=>({title:r.trackName||r.collectionName||r.artistName,url:r.trackViewUrl||r.collectionViewUrl||r.artistViewUrl,extract:describe(r.artistName,r.kind||r.wrapperType,r.primaryGenreName,'View in Apple’s store; purchases may cost money.')}));
   }},
   {id:'tavily',label:'Tavily',kind:'web',access:'free-key',key:'TAVILY_API_KEY',priority:100,minInterval:1000,async run(q,env){
     const d=await json('https://api.tavily.com/search',{env,method:'POST',headers:{Authorization:`Bearer ${env.TAVILY_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({query:q,search_depth:'basic',max_results:8,include_answer:false,include_raw_content:false,auto_parameters:false,safe_search:true})});

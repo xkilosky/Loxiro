@@ -7,7 +7,7 @@
 
 ## Unified search (v0.4 — free-source expansion)
 
-Normal searches produce **one combined feed**, not an engine picker. The server selects relevant sources, searches them in parallel, filters irrelevant specialist matches, deduplicates URLs, fuses ranks, and diversifies domains. Top ten unique links show source attribution. “Best” is a relevance heuristic, not a truth guarantee.
+Normal searches produce **one combined feed**, not an engine picker. The server selects relevant sources, searches them in parallel, filters irrelevant specialist matches, deduplicates URLs, fuses ranks with modest query-intent priors, and diversifies domains (DOI registrant prefixes count separately). Top ten unique links show source attribution. “Best” is a relevance heuristic, not a truth guarantee.
 
 **12 keyless integrations:** Wikipedia, Wikidata, DuckDuckGo Instant Answers, Crossref, OpenAlex, Europe PMC, Open Library, Internet Archive, Hacker News, Stack Overflow, GitHub repository search, and Apple iTunes. Specialists run only when the query matches their subject; unrelated sources stay idle. This is a researched, curated set, **not every free API on the internet**. These sources are not complete web-search indexes, and their free metadata does not mean every linked article, book, or media item is free to access.
 
