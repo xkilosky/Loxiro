@@ -399,6 +399,8 @@ public final class BrowserActivity extends Activity {
     @Override public void onTrimMemory(int level){super.onTrimMemory(level);if(level>=TRIM_MEMORY_RUNNING_LOW){previews.clear();for(String id:new ArrayList<>(pages.keySet()))if(!id.equals(session.activeId))destroyPage(id);refreshOverview();}}
     @Override protected void onDestroy(){destroying=true;dismissOverview();if(settingsDialog!=null)settingsDialog.dismiss();previews.clear();if(store!=null&&!clearInProgress)store.save(session);for(String id:new ArrayList<>(pages.keySet()))destroyPage(id);super.onDestroy();}
     // Package-private instrumentation observations; not exposed to website JavaScript.
+    boolean activePageReady(){Page page=activePage();return page!=null&&!page.crashed&&!page.loading&&page.view.getWidth()>0&&page.view.getHeight()>0;}
+    void afterVisibleFrame(Runnable callback){Page page=activePage();if(page!=null&&!page.crashed)page.view.postVisualStateCallback(0,new WebView.VisualStateCallback(){@Override public void onComplete(long id){callback.run();}});}
     int previewCount(){return previews.size();}
     BrowserSettings nativeSettings(){return preferences;}
     int nativeTabCount(){return session.tabs.size();}

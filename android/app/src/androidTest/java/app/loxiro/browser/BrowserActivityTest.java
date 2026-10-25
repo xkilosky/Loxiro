@@ -63,7 +63,11 @@ public class BrowserActivityTest {
     }
     private void awaitTitle(String title) {
         long end=SystemClock.uptimeMillis()+15000;AtomicBoolean done=new AtomicBoolean();
-        while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->done.set(title.equals(a.activeTitle())));if(done.get())return;SystemClock.sleep(75);}
+        while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->done.set(title.equals(a.activeTitle())&&a.activePageReady()));if(done.get()){
+            AtomicBoolean rendered=new AtomicBoolean();scenario.onActivity(a->a.afterVisibleFrame(()->rendered.set(true)));
+            long frameEnd=SystemClock.uptimeMillis()+5000;while(!rendered.get()&&SystemClock.uptimeMillis()<frameEnd)SystemClock.sleep(25);
+            assertTrue("WebView did not commit a visible frame",rendered.get());return;
+        }SystemClock.sleep(75);}
         fail("WebView did not load title: "+title);
     }
     @Test public void websitePopupKeepsNativeTabsVisibleAndSwitchable() {
@@ -137,6 +141,8 @@ public class BrowserActivityTest {
         onView(withId(R.id.tab_count)).perform(click());onView(withId(R.id.tab_overview)).check(matches(isDisplayed()));
         onView(withId(R.id.new_tab)).check(matches(isDisplayed()));saveScreenshot("tabs-landscape.png");
         onView(withContentDescription("Return to website")).perform(click());assertCompactChrome();
+        scenario.onActivity(a->a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();awaitTitle("First fixture");
     }
     private void openBrowserSettings(){
         onView(withContentDescription("Browser options")).perform(click());onView(withText("Browser settings")).perform(click());
