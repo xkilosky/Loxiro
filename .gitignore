@@ -1,9 +1,10 @@
 # Dependencies
 node_modules/
 
-# Build output (future Vite app)
+# Build output (future Vite app / static preview)
 dist/
 .vite/
+.vercel/
 *.local
 
 # Editor / OS
