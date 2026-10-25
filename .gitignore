@@ -15,3 +15,12 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Android local SDK, build products and signing material
+android/.gradle/
+android/**/build/
+android/local.properties
+*.apk
+*.aab
+*.jks
+*.keystore

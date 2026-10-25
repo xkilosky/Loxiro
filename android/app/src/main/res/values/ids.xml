@@ -1,0 +1,7 @@
+<resources>
+    <item name="address" type="id" />
+    <item name="tab_count" type="id" />
+    <item name="new_tab" type="id" />
+    <item name="tab_strip" type="id" />
+    <item name="web_content" type="id" />
+</resources>
