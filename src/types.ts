@@ -124,8 +124,11 @@ export interface UnifiedResult {
 export interface SearchProviderState {
   id: string;
   name: string;
-  kind: 'web' | 'knowledge';
-  status: 'ok' | 'not_configured' | 'unavailable';
+  kind: 'web' | 'knowledge' | 'research' | 'books' | 'archives' | 'community' | 'code' | 'media';
+  status: 'ok' | 'not_configured' | 'unavailable' | 'rate_limited' | 'skipped' | 'disabled';
+  access?: 'keyless' | 'free-key' | 'paid-key';
+  cached?: boolean;
+  retryAfterSeconds?: number;
   count: number;
 }
 export interface UnifiedSearchResponse {
@@ -134,4 +137,6 @@ export interface UnifiedSearchResponse {
   providers: SearchProviderState[];
   limitedWebCoverage: boolean;
   ranking: string;
+  topics?: string[];
+  durationMs?: number;
 }

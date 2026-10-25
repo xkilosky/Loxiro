@@ -1,0 +1,42 @@
+# Search provider catalog — researched 2026-10-24
+
+A curated integration list, not an exhaustive list of all free services. Primary documentation was checked; fixture tests validate normalization, not service uptime. Availability, account terms, quotas and free plans can change. Never bypass authentication, scrape result pages without authorization, or rotate public instances to evade limits.
+
+## Keyless sources enabled automatically when relevant
+
+| Source | Scope / official reference | Local pacing and caveats |
+|---|---|---|
+| Wikipedia | [Action API](https://www.mediawiki.org/wiki/API:Search) | Encyclopedia, not full web; English; 250 ms minimum start interval |
+| Wikidata | [wbsearchentities](https://www.wikidata.org/w/api.php?action=help&modules=wbsearchentities) | Entity labels/descriptions, English; 500 ms interval |
+| DuckDuckGo | [Instant Answers](https://duckduckgo.com/api) | **Not** its full SERP; 1 second interval; may be unavailable |
+| Crossref | [REST API](https://www.crossref.org/documentation/retrieve-metadata/rest-api/) | Scholarly metadata/DOIs, not necessarily free full text; 1 second interval; optional real mailto contact |
+| OpenAlex | [Authentication](https://help.openalex.org/api/authentication/) | Basic/casual keyless searches supported by current docs; optional free key raises budget; 1 second interval |
+| Europe PMC | [REST API](https://europepmc.org/RestfulWebService) | Biomedical/life-science literature; 1 second interval; not medical advice |
+| Open Library | [Usage guidelines](https://openlibrary.org/developers/api), [Search](https://openlibrary.org/dev/docs/api/search) | Default 1 request/second; 1.1 second local interval; cache. Human-facing low-volume discovery only; no bulk/high-traffic commercial use. Real contact identification recommended. |
+| Internet Archive | [Advanced search API](https://archive.org/advancedsearch.php), [developer portal](https://archive.org/developers/search.html) | Catalog/media/archive discovery; 1.1 second interval; linked access/licensing varies |
+| Hacker News / Algolia | [Search API](https://hn.algolia.com/api) | Community stories and discussion, **not** a general news index; 500 ms interval; no HTML highlights rendered |
+| Stack Overflow / Stack Exchange | [Advanced search](https://api.stackexchange.com/docs/advanced-search), [Throttle](https://api.stackexchange.com/docs/throttle) | Programming Q&A; 1.1 second interval; identical query cached for 60 seconds; honors per-method backoff and quota exhaustion |
+| GitHub | [Repository search](https://docs.github.com/en/rest/search/search#search-repositories) | **Public repositories only**, not code search. Keyless search limit 10/minute; 6.5 second interval; honors exhausted quota/reset |
+| Apple iTunes | [Search API](https://performance-partners.apple.com/search-api) | Music/podcasts/film/store catalog, US storefront, approximately 20 requests/minute; 3.1 second interval. Text and store links only; no artwork/preview reuse. Purchases may cost money. |
+
+Pacing is best-effort **per warm server instance**, not an assertion of a provider's universal quota. Providers and shared hosting IPs can impose lower limits. `PROVIDER_CONTACT_EMAIL` must be a real operator-supplied contact, not an invented address. Default User-Agent identifies the project's GitHub URL. No external network calls are made simply by loading Home.
+
+## Optional recurring free-tier web APIs
+
+- **Tavily:** [credits](https://docs.tavily.com/documentation/api-credits), [endpoint](https://docs.tavily.com/documentation/api-reference/endpoint/search). 1,000 free credits/month documented; Loxiro explicitly sets basic depth, no auto parameters, no generated answer, no raw page content. `TAVILY_API_KEY`.
+- **SerpApi:** [pricing](https://serpapi.com/pricing), [Google endpoint](https://serpapi.com/search-api). 250 free searches/month and 50/hour documented. `SERPAPI_API_KEY`. Local start interval 73 seconds stays below 50/hour on one instance. Google-backed organic links only, not AI overviews.
+- **Zenserp:** [pricing](https://zenserp.com/), [authentication/endpoints](https://app.zenserp.com/documentation). 50 free searches/month documented. `ZENSERP_API_KEY` sent as an HTTPS header. Google organic links only, not answer engines.
+
+All three require the user's own account and key. They are implemented and fixture-tested but **cannot be live-tested without credentials**. No free-key service is described as active merely because an adapter exists. Free quotas are finite; account type and provider-side usage limits control possible charges. No signup, card entry, subscription change or automatic fallback purchase is performed.
+
+Legacy Serper trial/paid and [Brave's monthly credit with paid usage](https://api-dashboard.search.brave.com/app/plans) are retained but require **both** a key and `LOXIRO_ALLOW_PAID_PROVIDERS=1`. They are not advertised as unlimited free sources.
+
+## Selection, quality and transparency
+
+The deterministic English-keyword planner uses relevant subjects (research, health, programming, books, archives, media, technology), plus general knowledge sources. It is a heuristic and can miss intent, especially other languages. Maximum 8 requests/search; unused sources return `skipped` without receiving the query. Missing keys, disabled paid services, empty successful responses, failures and cooldowns are distinct in the API/UI. Cached answers are labeled. Snippets are plain text, never injected HTML.
+
+Specialist matches must overlap at least 25% of substantive query tokens, then all candidates enter reciprocal-rank fusion, URL deduplication, modest title/snippet matching and domain diversity. DOI URLs let Crossref/OpenAlex/Europe PMC agree on the same work. Google relay vendors count as **one engine-family vote**, not three independent confirmations. Source attribution does not certify accuracy, safety, availability or free access. No LLM invents answers or results.
+
+The transport has 4.2-second deadlines and a 1.5 MB response cap. A bounded 160-entry cache with 60-second TTL, in-flight deduplication, provider pacing and backoff protect each warm instance. Two network failures open a 60-second circuit. Retry-After dates/seconds and GitHub reset times are honored (up to one day). Stack Exchange backoff is respected even on a successful response. Nothing retries paid API calls automatically. HTTP responses remain `private, no-store`; caches are not sent to the service worker. Public result snippets are briefly held in memory under hashed keys, never written as search history. Hosting and sources can log URLs/queries. At scale, deploy distributed protection; no monthly spending cap is promised by this code.
+
+Sources intentionally not added include unauthenticated HTML scraping of Google/Bing/DDG, randomly selected public SearXNG servers, and huge catalogs of unrelated APIs that would add latency/noise rather than relevance. arXiv literature is discoverable through the scholarly indexes; no separate XML adapter is claimed. Transient promotional trial credits are not presented as recurring free plans.

@@ -1,5 +1,8 @@
 import { createHash } from 'node:crypto';
 import { rankResults } from './rank.mjs';
+import {PROVIDERS} from './providers.mjs';
+import {planProviders} from './planner.mjs';
+import {createProviderRuntime} from './runtime.mjs';
 
 const buckets=new Map();
 function allow(ip) {
@@ -10,50 +13,21 @@ function allow(ip) {
   const b=buckets.get(key)||{start:now,count:0};b.count++;buckets.set(key,b);
   return b.count<=12;
 }
-async function json(url, options={}) {
-  const r=await fetch(url,{...options,signal:AbortSignal.timeout(5500),headers:{'User-Agent':'Loxiro/0.3 (+https://github.com/xkilosky/Loxiro)',...options.headers}});
-  if(!r.ok) throw new Error('Provider unavailable');
-  return r.json();
-}
-const PROVIDERS=[
-  {id:'google',label:'Google (via Serper)',kind:'web',key:'SERPER_API_KEY',async run(q,env){
-    const data=await json('https://google.serper.dev/search',{method:'POST',headers:{'X-API-KEY':env.SERPER_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({q,num:10})});
-    return (data.organic||[]).map(r=>({title:r.title,url:r.link,extract:r.snippet}));
-  }},
-  {id:'brave',label:'Brave Search',kind:'web',key:'BRAVE_SEARCH_API_KEY',async run(q,env){
-    const data=await json(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=10&safesearch=moderate`,{headers:{'X-Subscription-Token':env.BRAVE_SEARCH_API_KEY,Accept:'application/json'}});
-    return (data.web?.results||[]).map(r=>({title:r.title,url:r.url,extract:stripTags(r.description||'')}));
-  }},
-  {id:'wikipedia',label:'Wikipedia',kind:'knowledge',async run(q){
-    const data=await json(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=8&prop=extracts&exintro=1&explaintext=1&exsentences=2&format=json`);
-    return Object.values(data.query?.pages||{}).sort((a,b)=>a.index-b.index).map(p=>({title:p.title,url:`https://en.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g,'_'))}`,extract:p.extract||''}));
-  }},
-  {id:'duckduckgo',label:'DuckDuckGo Instant Answers',kind:'knowledge',async run(q){
-    // This API returns instant answers, NOT DuckDuckGo's full web result list.
-    const data=await json(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=0`);
-    const out=[];
-    if(data.AbstractURL&&data.AbstractText)out.push({title:data.Heading||q,url:data.AbstractURL,extract:data.AbstractText});
-    const topics=(data.RelatedTopics||[]).flatMap(t=>t.Topics||[t]);
-    for(const t of topics.slice(0,8))if(t.FirstURL&&t.Text)out.push({title:t.Text.split(' - ')[0].slice(0,180),url:t.FirstURL,extract:t.Text});
-    return out;
-  }},
-];
-function stripTags(text){return String(text).replace(/<[^>]*>/g,'').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'");}
-
-export async function aggregateSearch(query, {env=process.env,providers=PROVIDERS}={}) {
+const sharedRuntime=createProviderRuntime();
+export async function aggregateSearch(query, { env=process.env, providers=PROVIDERS, runtime=providers===PROVIDERS?sharedRuntime:createProviderRuntime() }={}) {
+  const started=Date.now();
+  const plan=planProviders(query,providers===PROVIDERS?providers:providers.map(p=>({...p,priority:p.priority??90})),env);
   const batches=await Promise.all(providers.map(async p=>{
-    if(p.key&&!env[p.key])return {provider:p.label,id:p.id,kind:p.kind,status:'not_configured',results:[]};
-    try {return {provider:p.label,id:p.id,kind:p.kind,status:'ok',results:await p.run(query,env)};}
-    catch{return {provider:p.label,id:p.id,kind:p.kind,status:'unavailable',results:[]};}
+    const meta={id:p.id,name:p.label,kind:p.kind,access:p.access||'keyless',family:p.family||p.id,count:0};
+    if(p.key&&!env[p.key])return{...meta,status:'not_configured',results:[]};
+    if(p.paid&&env.LOXIRO_ALLOW_PAID_PROVIDERS!=='1')return{...meta,status:'disabled',results:[]};
+    if(!plan.selected.includes(p.id))return{...meta,status:'skipped',results:[]};
+    const response=await runtime.run(p,query,env);
+    return{...meta,...response,count:response.results.length};
   }));
-  const successful=batches.filter(b=>b.status==='ok');
-  const results=rankResults(successful,query);
-  return {
-    query,results,
-    providers:batches.map(b=>({id:b.id,name:b.provider,kind:b.kind,status:b.status,count:rankResults([b],query,20).length})),
-    limitedWebCoverage:!successful.some(b=>b.kind==='web'),
-    ranking:'reciprocal-rank-fusion',
-  };
+  const results=rankResults(batches.map(p=>({provider:p.name,family:p.family,results:p.results})),query);
+  return{query,results,providers:batches.map(({results,...p})=>p),topics:plan.topics,ranking:'reciprocal-rank-fusion',
+    limitedWebCoverage:!batches.some(p=>p.kind==='web'&&p.status==='ok'&&p.count>0),durationMs:Date.now()-started};
 }
 
 export default async function handler(req,res) {

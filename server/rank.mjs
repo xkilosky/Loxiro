@@ -27,13 +27,17 @@ export function rankResults(batches, query, limit = 10) {
       seen.add(c.key);
       let row = merged.get(c.key);
       if (!row) {
-        row = {url:c.url, domain:c.domain, title:String(item.title).slice(0,250), extract:String(item.extract || '').slice(0,1000), sources:[], score:0, bestRank:index+1};
+        row = {url:c.url, domain:c.domain, title:String(item.title).slice(0,250), extract:String(item.extract || '').slice(0,1000), sources:[], votes:new Map(), score:0, bestRank:index+1};
         merged.set(c.key, row);
       }
       // One contribution per provider, even if a caller supplies repeated batches.
       if (row.sources.includes(batch.provider)) return;
       row.sources.push(batch.provider);
-      row.score += 1 / (60 + index + 1);
+      // Multiple vendors returning the same Google index are not independent votes.
+      const family=batch.family||batch.provider;
+      const vote=1/(60+index+1), previous=row.votes.get(family)||0;
+      row.score+=Math.max(0,vote-previous);
+      row.votes.set(family,Math.max(previous,vote));
       row.bestRank = Math.min(row.bestRank, index+1);
       if (String(item.extract || '').length > row.extract.length) row.extract = String(item.extract).slice(0,1000);
     });
@@ -50,5 +54,5 @@ export function rankResults(batches, query, limit = 10) {
     if (count>=2) deferred.push(row);
     else { selected.push(row); domains.set(row.domain,count+1); }
   }
-  return [...selected,...deferred].slice(0,limit).map(({score,bestRank,...row})=>row);
+  return [...selected,...deferred].slice(0,limit).map(({score,bestRank,votes,...row})=>row);
 }
