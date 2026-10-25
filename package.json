@@ -1,0 +1,9 @@
+{
+  "name": "loxiro-preview",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Static preview site for the Loxiro project plan and concept board",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  }
+}
