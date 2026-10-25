@@ -114,6 +114,7 @@ export interface SmartAnalysis {
 }
 
 export interface UnifiedResult {
+  kind?: 'website' | 'reference';
   title: string;
   url: string;
   domain: string;
@@ -136,6 +137,9 @@ export interface UnifiedSearchResponse {
   results: UnifiedResult[];
   providers: SearchProviderState[];
   limitedWebCoverage: boolean;
+  webSearchConfigured?: boolean;
+  websiteCount?: number;
+  referenceCount?: number;
   ranking: string;
   topics?: string[];
   durationMs?: number;

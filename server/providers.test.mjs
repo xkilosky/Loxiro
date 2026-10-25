@@ -40,7 +40,7 @@ describe('provider registry and normalization',()=>{
     expect(results.length).toBeGreaterThan(0);expect(results[0].title.toLowerCase()).toContain('quantum');
     expect(results[0].url).toMatch(/^https:\/\//);
     expect(JSON.stringify(results)).not.toMatch(/secret-value|do-not-request|<b>/);
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher).toHaveBeenCalledTimes(id==='wikidata'?2:1);
   });
   it('keeps Tavily at basic, one-credit search with no generated answer',async()=>{
     const fetcher=vi.fn(async()=>new Response(JSON.stringify(fixtures.tavily)));vi.stubGlobal('fetch',fetcher);

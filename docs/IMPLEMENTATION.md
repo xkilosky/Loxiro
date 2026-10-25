@@ -52,3 +52,13 @@ User change: replace provider picking with one merged, ranked result feed.
 - Live relevance review led to medium-specific Apple/Archive requests, lower catalog/community ranking priors, no HN fan-out for biomedical-only research, and DOI registrant-prefix diversity rather than treating every scholarly publisher as one domain. Three regressions cover those refinements.
 
 - Final live rechecks confirmed medium-scoped music results, a scholarly feed with merged DOI attribution, and successful GitHub repository retrieval after its earlier quota reset. Open Library still timed out and DDG remained unavailable. Repository searches now remove standalone routing words (e.g. “GitHub repository”) while preserving native search qualifiers such as `repo:owner/name`.
+
+# v0.4.1 — Website destinations in the combined feed
+
+User correction: searches must include actual websites, not only Wikipedia.
+
+- The latest environment inspection still found no configured search keys. Do not claim general-web search is connected.
+- The Wikidata adapter now returns direct P856-listed website destinations as well as record references, with one batched claims lookup. Deprecated/ended listings and unsafe/local addresses are excluded; preferred statements suppress normal ones. Directory entries are attributed and explicitly **not independently verified**, not invented sites or a replacement for a web index.
+- The best available website leads the unified feed. Wikipedia/Wikidata references share a two-item diversity allowance before backfill; missing website candidates never trigger fabricated links. All results are still one combined feed, not engine selection.
+- Website/reference labels and counts are visible. When general web search lacks credentials, an expandable setup panel links to secure environment settings and documents supported server-only free-tier keys. Configured outages are distinguished from missing setup.
+- 115 tests pass, including 12 new website extraction, safety, current/preferred statement handling, enrichment/failure fallback, ordering, reference balance, and coverage regressions. TypeScript, build, staged module import and browser/axe/responsive/offline checks are required before deployment. Browser fixtures now include a direct website and verify its first position, badges and setup panel.

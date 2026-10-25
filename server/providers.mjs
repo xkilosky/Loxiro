@@ -1,5 +1,6 @@
 import {json,stripTags,describe,ProviderError} from './transport.mjs';
 import {queryTopics} from './planner.mjs';
+import {listedWebsites} from './websites.mjs';
 const enc=encodeURIComponent;
 const params=(base,values)=>{const u=new URL(base);for(const [k,v]of Object.entries(values))if(v!==undefined&&v!=='')u.searchParams.set(k,String(v));return u.href;};
 
@@ -10,9 +11,18 @@ export const PROVIDERS=[
     return Object.values(d.query?.pages||{}).sort((a,b)=>a.index-b.index).map(p=>({title:p.title,url:`https://en.wikipedia.org/wiki/${enc(p.title.replace(/ /g,'_'))}`,extract:p.extract||''}));
   }},
   {id:'wikidata',label:'Wikidata',kind:'knowledge',access:'keyless',priority:75,minInterval:500,async run(q,env){
-    const d=await json(params('https://www.wikidata.org/w/api.php',{action:'wbsearchentities',search:q,language:'en',uselang:'en',type:'item',limit:6,format:'json'}),{env});
+    const search=q.replace(/\s+(?:(?:official\s+)?(?:websites?|sites?|homepages?))\s*$/i,'').trim()||q;
+    const d=await json(params('https://www.wikidata.org/w/api.php',{action:'wbsearchentities',search,language:'en',uselang:'en',type:'item',limit:6,format:'json'}),{env});
     if(d.error)throw new Error('Wikidata unavailable');
-    return (d.search||[]).filter(r=>/^Q\d+$/.test(r.id)).map(r=>({title:r.label||r.id,url:`https://www.wikidata.org/wiki/${r.id}`,extract:r.description||'Structured knowledge record on Wikidata.'}));
+    const matches=(d.search||[]).filter(r=>/^Q\d+$/.test(r.id));
+    const references=matches.map(r=>({title:r.label||r.id,url:`https://www.wikidata.org/wiki/${r.id}`,extract:r.description||'Structured knowledge record on Wikidata.'}));
+    if(!matches.length)return references;
+    try{
+      const data=await json(params('https://www.wikidata.org/w/api.php',{action:'wbgetentities',ids:matches.map(r=>r.id).join('|'),props:'claims',format:'json'}),{env});
+      // Directory enrichment can fail independently: retain successful references.
+      return [...listedWebsites(matches,data.entities),...references];
+    }catch{return references;}
+
   }},
   {id:'duckduckgo',label:'DuckDuckGo Instant Answers',kind:'knowledge',access:'keyless',priority:30,minInterval:1000,async run(q,env){
     const d=await json(params('https://api.duckduckgo.com/',{q,format:'json',no_html:1,skip_disambig:0}),{env});

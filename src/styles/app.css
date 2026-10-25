@@ -26,3 +26,5 @@ body{background:var(--bg);color:var(--ink)}
 .results-search>.search-area{min-width:0}
 
 .source-routing-note{color:var(--muted);font-size:10px;line-height:1.8;margin:0 0 14px}
+
+.web-setup-details{font-size:11px;line-height:1.8;margin-top:10px}.web-setup-details summary{cursor:pointer;color:var(--ink);font-weight:600}.web-setup-details p{margin-top:10px}.web-setup-details code{overflow-wrap:anywhere}.web-setup-details a{display:inline-flex;align-items:center;gap:5px;color:var(--accent);margin-top:10px;text-decoration:underline}.result-kind{border:1px solid var(--line);border-radius:4px;padding:2px 5px;color:var(--ink);font-size:9px}

@@ -115,3 +115,11 @@ The sandbox's raw `*.e2b.app` URL may require platform traffic authentication. P
 - [Concept PNG](docs/assets/loxiro-concept.png)
 
 The initial plan proposed demo results. The implementation now uses **server-side unified search with honest source coverage**. Spaces are implemented rather than left as a teaser.
+
+### Website destinations (v0.4.1)
+
+The combined feed now **leads with an available website match**, not an encyclopedia page. Website/reference badges and counts make the distinction visible. Wikipedia and Wikidata record pages are supporting references: at most two enter the diversity pass before other available website destinations; reference-only searches are still displayed honestly rather than filled with made-up URLs.
+
+For named organizations, products and people, the Wikidata adapter also batches a lookup of [P856 website statements](https://www.wikidata.org/wiki/Property:P856) and returns direct website links. Preferred statements win over normal statements; deprecated/ended statements and unsafe/local addresses are excluded. These are **crowdsourced directory listings, not independently verified official sites or general-web crawling**. If enrichment fails, the original reference results survive. No guessed domains or static popular-site seed list is used. The enrichment adds at most one HTTP request: the planner still caps source adapters at eight (up to nine upstream requests with this enrichment); each fetch has its own 4.2-second deadline.
+
+The app shows a clear **“Enable broader website search”** setup panel when no full-web service is connected. Add one of `TAVILY_API_KEY`, `SERPAPI_API_KEY`, or `ZENSERP_API_KEY` in the linked secure environment settings and redeploy; never paste keys into chat. The directory feature does not remove that requirement for general-web queries. No connection is silently created and no billing is enabled.

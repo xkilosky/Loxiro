@@ -27,6 +27,8 @@ export async function aggregateSearch(query, { env=process.env, providers=PROVID
   }));
   const results=rankResults(batches.map(p=>({provider:p.name,family:p.family,weight:sourceWeight(p,query),results:p.results})),query);
   return{query,results,providers:batches.map(({results,...p})=>p),topics:plan.topics,ranking:'reciprocal-rank-fusion',
+    websiteCount:results.filter(r=>r.kind==='website').length,referenceCount:results.filter(r=>r.kind==='reference').length,
+    webSearchConfigured:providers.some(p=>p.kind==='web'&&(!p.key||env[p.key])&&(!p.paid||env.LOXIRO_ALLOW_PAID_PROVIDERS==='1')),
     limitedWebCoverage:!batches.some(p=>p.kind==='web'&&p.status==='ok'&&p.count>0),durationMs:Date.now()-started};
 }
 

@@ -1,3 +1,6 @@
+/** Wikimedia reference pages should not crowd out actual website destinations. */
+export function isReferenceDomain(domain){return /(?:^|\.)(?:wikipedia\.org|wikidata\.org)$/.test(domain);}
+
 /** Canonicalize links without discarding meaningful query parameters. */
 export function canonicalUrl(raw) {
   try {
@@ -27,7 +30,7 @@ export function rankResults(batches, query, limit = 10) {
       seen.add(c.key);
       let row = merged.get(c.key);
       if (!row) {
-        row = {url:c.url, domain:c.domain, title:String(item.title).slice(0,250), extract:String(item.extract || '').slice(0,1000), sources:[], votes:new Map(), score:0, bestRank:index+1};
+        row = {url:c.url, domain:c.domain, kind:isReferenceDomain(c.domain)?'reference':'website', title:String(item.title).slice(0,250), extract:String(item.extract || '').slice(0,1000), sources:[], votes:new Map(), score:0, bestRank:index+1};
         merged.set(c.key, row);
       }
       // One contribution per provider, even if a caller supplies repeated batches.
@@ -49,14 +52,20 @@ export function rankResults(batches, query, limit = 10) {
     const relevance = tokens.length ? tokens.reduce((n,t)=>n+(title.includes(t)?1:text.includes(t)?.4:0),0)/tokens.length : 0;
     return {...row, score:row.score*(1+relevance*.2), reason:row.sources.length>1 ? `Found by ${row.sources.length} sources` : row.bestRank===1 ? 'Top match from this source' : 'Ranked by source position and query match'};
   }).sort((a,b)=>b.score-a.score || a.url.localeCompare(b.url));
-  const selected=[], deferred=[], domains=new Map();
-  for (const row of rows) {
+  // When a real website candidate exists, lead with the strongest one. Keep
+  // encyclopedia/directory pages as supporting references, not the whole feed.
+  const website=rows.find(row=>row.kind==='website');
+  const ordered=website?[website,...rows.filter(row=>row!==website)]:rows;
+  const selected=[], deferred=[], references=[], domains=new Map();
+  let referenceCount=0;
+  for (const row of ordered) {
+    if(website&&row.kind==='reference'&&referenceCount>=2){references.push(row);continue;}
     // DOI is a resolver for many publishers, not a single publishing domain.
     const prefix=row.domain==='doi.org'?new URL(row.url).pathname.split('/')[1].toLowerCase():'';
     const group=prefix?`doi.org/${prefix}`:row.domain;
     const count=domains.get(group)||0;
     if (count>=2) deferred.push(row);
-    else { selected.push(row); domains.set(group,count+1); }
+    else { selected.push(row); domains.set(group,count+1);if(row.kind==='reference')referenceCount++; }
   }
-  return [...selected,...deferred].slice(0,limit).map(({score,bestRank,votes,...row})=>row);
+  return [...selected,...deferred,...references].slice(0,limit).map(({score,bestRank,votes,...row})=>row);
 }
