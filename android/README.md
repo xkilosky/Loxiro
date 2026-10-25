@@ -17,10 +17,18 @@ The **Android browser preview** GitHub workflow builds an installable debug APK 
 
 ## Native tabs
 
-- A single **56dp toolbar** with back, address/search, tab count and menu leaves the rest of the screen for websites. Tap the tab count for the searchable tab list and **New tab**; close/switch, pin/duplicate/reorder, reopen and bulk close remain available. Home, forward and reload/stop live in the overflow menu. All persistent touch targets are 48dp; no always-expanded tab strip.
+- A single **56dp toolbar** with back, address/search, tab count and menu leaves the rest of the screen for websites. Tap the tab count for a **full-screen visual card grid** and a thumb-friendly **New tab** button. All/Pinned/Closed filters, a highlighted current card, per-card close/menu controls, undo close and individual closed-tab restore keep management out of the website viewport. No second search field. Pin/duplicate/reorder and bulk close remain available. Home, forward and reload/stop live in the overflow menu. All persistent touch targets are 48dp; no always-expanded tab strip.
 - Up to **12 website tabs**, last **10 closed URLs** restorable. Only the latest **3 WebViews** stay live to bound memory; evicted tabs reload their URL. Back history, forms, JS state and scroll position are **not** preserved after eviction/process recreation.
 - Session URLs/titles/pins are app-private SharedPreferences metadata. Native Clear browser data deletes tab metadata, cookies, WebStorage and WebView cache; downloaded public files stay. Native sessions are separate from the PWA's local workspace. Normal cookies are shared across this app's WebViews; third-party cookies are disabled.
 - Searches use the existing hosted Loxiro unified search. Website requests originate from the Android device and use Android System WebView, not the search server. Internet access and a current Android System WebView are required. Loxiro's existing provider/key limitations remain unchanged.
+
+## Visual tab switcher (preview.3)
+
+- Responsive 1–4-column grid based on actual window width: two cards across on typical phones, more in landscape/tablet windows. Card titles, hostnames and a labeled current-tab border remain native UI.
+- Last-viewed viewport previews are captured only from an already-visible, finished WebView, never by loading background pages. Missing previews use an honest site-initial placeholder. These are snapshots, not live pages.
+- Previews are **memory-only**, at most 224 × 300 pixels each (about 3.1 MiB total for 12 ARGB images). They are not written to files, backups, or session storage. Closing a tab, a new navigation, clearing data, low-memory signals and Activity destruction discard the relevant previews. Rotation/process recreation retains tab metadata, not screenshots. Sensitive page content can appear in a tab preview while the app is open.
+- Undo restores the exact closed tab; Closed lets you choose among the last 10. URL/title/pin state restores, not form data or complete browsing state. At the 12-tab cap, restoration requires closing a tab first.
+- Automated Android 15 checks cover real website switching, grid sizing, pin filters, close/undo/restore, portrait/landscape reachability, session recreation and the unchanged compact browsing toolbar. Fixture screenshots are included in the test reports artifact; they do not establish physical-device or every-website compatibility.
 
 ## Security / limits
 

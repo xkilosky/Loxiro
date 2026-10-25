@@ -48,6 +48,11 @@ jobs:
           disable-animations: true
           working-directory: android
           script: ./gradlew --no-daemon connectedDebugAndroidTest
+      - name: Collect visual tab-switcher screenshots
+        if: always()
+        run: |
+          mkdir -p app/build/reports/tab-ui
+          adb pull /sdcard/Android/data/app.loxiro.browser/files/tab-ui/. app/build/reports/tab-ui/ || true
       - name: Upload native test reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

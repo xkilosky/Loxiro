@@ -2,6 +2,11 @@ package app.loxiro.browser;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.graphics.Bitmap;
+import android.widget.LinearLayout;
+import java.io.File;
+import java.io.FileOutputStream;
 import android.os.SystemClock;
 import android.view.View;
 import android.webkit.WebView;
@@ -104,6 +109,39 @@ public class BrowserActivityTest {
         }
         scenario.onActivity(a->assertEquals(12,a.nativeTabCount()));assertCompactChrome();
         scenario.recreate();awaitTitle("First fixture");assertCompactChrome();
+    }
+    @Test public void visualCardsSupportPinUndoAndSpecificClosedRestore() throws Exception {
+        onView(withId(R.id.address)).perform(replaceText(origin+"/two"),pressImeActionButton());awaitTitle("Second fixture");
+        onView(withId(R.id.tab_count)).perform(click());onView(withId(R.id.new_tab)).perform(click());awaitTitle("First fixture");
+        onView(withId(R.id.tab_count)).perform(click());
+        onView(withId(R.id.tab_overview)).check(matches(isDisplayed()));
+        onView(withId(R.id.tab_card_grid)).check((view,error)->{
+            if(error!=null)throw error;
+            LinearLayout grid=(LinearLayout)view;assertEquals(1,grid.getChildCount());
+            LinearLayout row=(LinearLayout)grid.getChildAt(0);assertEquals("Two cards side by side on a phone",2,row.getChildCount());
+            assertTrue(row.getChildAt(0).getWidth()>0);assertEquals(row.getChildAt(0).getWidth(),row.getChildAt(1).getWidth());
+        });
+        // No second search/URL input is introduced inside the visual switcher.
+        onView(withContentDescription("Options for Second fixture")).perform(click());onView(withText("Pin")).perform(click());
+        onView(withId(R.id.tab_filter_pinned)).perform(click());
+        onView(withContentDescription("Go to Second fixture")).check(matches(isDisplayed()));
+        onView(withId(R.id.tab_filter_all)).perform(click());saveScreenshot("tabs-phone.png");
+        onView(withContentDescription("Close Second fixture")).perform(click());scenario.onActivity(a->assertEquals(1,a.nativeTabCount()));
+        onView(withContentDescription("Undo close tab")).perform(click());scenario.onActivity(a->assertEquals(2,a.nativeTabCount()));
+        onView(withContentDescription("Close First fixture")).perform(click());onView(withId(R.id.tab_filter_closed)).perform(click());
+        onView(withContentDescription("Restore First fixture")).perform(click());awaitTitle("First fixture");scenario.onActivity(a->assertEquals(2,a.nativeTabCount()));assertCompactChrome();
+        onView(withId(R.id.tab_count)).perform(click());onView(withContentDescription("Return to website")).perform(click());assertCompactChrome();
+        scenario.onActivity(a->a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();awaitTitle("First fixture");
+        onView(withId(R.id.tab_count)).perform(click());onView(withId(R.id.tab_overview)).check(matches(isDisplayed()));
+        onView(withId(R.id.new_tab)).check(matches(isDisplayed()));saveScreenshot("tabs-landscape.png");
+        onView(withContentDescription("Return to website")).perform(click());assertCompactChrome();
+    }
+    private void saveScreenshot(String name) throws Exception {
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        Bitmap image=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();assertNotNull(image);
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();File dir=context.getExternalFilesDir("tab-ui");assertNotNull(dir);assertTrue(dir.exists()||dir.mkdirs());
+        try(FileOutputStream out=new FileOutputStream(new File(dir,name))){assertTrue(image.compress(Bitmap.CompressFormat.PNG,100,out));}finally{image.recycle();}
     }
     @After public void cleanup() throws Exception {if(scenario!=null)scenario.close();if(server!=null)server.close();if(worker!=null)worker.shutdownNow();}
 }

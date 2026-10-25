@@ -37,9 +37,13 @@ final class TabSession {
         else if (id.equals(activeId)) activeId = tabs.get(Math.min(index, tabs.size() - 1)).id;
         return true;
     }
-    Tab reopen() {
-        if (closed.isEmpty() || tabs.size() >= MAX_TABS) return null;
-        Tab tab = closed.remove(0);tabs.add(tab); sortPins();activeId = tab.id;return tab;
+    Tab reopen() { return closed.isEmpty()?null:reopen(closed.get(0).id); }
+    Tab reopen(String id) {
+        if(tabs.size()>=MAX_TABS)return null;
+        for(Tab tab:new ArrayList<>(closed))if(tab.id.equals(id)){
+            closed.remove(tab);tabs.add(tab);sortPins();activeId=tab.id;return tab;
+        }
+        return null;
     }
     Tab duplicate(String id) {
         Tab original = find(id);if (original == null) return null;

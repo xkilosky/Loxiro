@@ -6,6 +6,8 @@ import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
@@ -18,10 +20,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Message;
-import android.text.Editable;
 import android.text.InputType;
-import android.text.TextWatcher;
-import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -47,7 +46,6 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.util.ArrayList;
@@ -67,9 +65,9 @@ public final class BrowserActivity extends Activity {
     private TextView errorBanner;
     private Button tabCount, back;
     private ProgressBar progress;
-    private AlertDialog overview;
-    private LinearLayout overviewRows;
-    private EditText overviewFilter;
+    private TabOverviewDialog overview;
+    // At most 12 small, in-memory previews; never written to storage or exposed to JavaScript.
+    private final LinkedHashMap<String,Bitmap> previews=new LinkedHashMap<>();
     private boolean destroying, clearInProgress;
 
     private static final class Page {
@@ -155,6 +153,7 @@ public final class BrowserActivity extends Activity {
     }
     private TabSession.Tab addTab(String url,boolean load) {
         if(clearInProgress)return null;
+        capturePreview();
         Page old=activePage();
         TabSession.Tab tab=session.add(url);
         if(tab==null){toast("Maximum "+TabSession.MAX_TABS+" website tabs. Close one first.");return null;}
@@ -164,6 +163,7 @@ public final class BrowserActivity extends Activity {
     }
     private void select(String id) {
         if(clearInProgress)return;
+        if(!id.equals(session.activeId))capturePreview();
         for(Page background:pages.values())if(!background.id.equals(id)&&!background.crashed)background.view.onPause();
         if(!session.select(id))return;
         Page page=pages.remove(id);
@@ -195,7 +195,7 @@ public final class BrowserActivity extends Activity {
             @Override public void onPageStarted(WebView web,String url,android.graphics.Bitmap favicon) {
                 if(!alive(page))return;
                 TabSession.Tab t=session.find(page.id);if(UrlPolicy.isWebUrl(url)||"about:blank".equals(url)){t.url=url;t.title="";}
-                page.loading=true;page.error="";page.progress=0;changed(page);
+                previews.remove(page.id);page.loading=true;page.error="";page.progress=0;changed(page);
             }
             @Override public void doUpdateVisitedHistory(WebView web,String url,boolean reload) {
                 if(!alive(page))return;
@@ -215,7 +215,7 @@ public final class BrowserActivity extends Activity {
             }
             @Override public boolean onRenderProcessGone(WebView web,RenderProcessGoneDetail detail) {
                 if(!alive(page))return true;
-                page.crashed=true;page.loading=false;page.error="Page process stopped. Reload to restore this URL.";
+                previews.remove(page.id);page.crashed=true;page.loading=false;page.error="Page process stopped. Reload to restore this URL.";
                 if(web.getParent() instanceof ViewGroup)((ViewGroup)web.getParent()).removeView(web);web.destroy();
                 if(page.id.equals(session.activeId)){attach(page);renderChrome();}return true;
             }
@@ -256,7 +256,7 @@ public final class BrowserActivity extends Activity {
     }
     private void closeTab(String id) {
         if(clearInProgress)return;
-        destroyPage(id);session.close(id,home);select(session.activeId);refreshOverview();
+        previews.remove(id);destroyPage(id);session.close(id,home);select(session.activeId);refreshOverview();
     }
     private void reloadActive() {
         TabSession.Tab tab=session.active();if(tab==null)return;
@@ -274,37 +274,45 @@ public final class BrowserActivity extends Activity {
         for(String id:new ArrayList<>(pages.keySet()))if(pages.size()>MAX_LIVE_VIEWS&&!id.equals(session.activeId))destroyPage(id);
     }
     private void toast(String text){Toast.makeText(this,text,Toast.LENGTH_LONG).show();}
+    private void capturePreview() {
+        Page page=activePage();
+        if(page==null||page.crashed||page.loading||page.view.getWidth()==0||page.view.getHeight()==0)return;
+        // Snapshot only the currently visible viewport, never a full page or a background WebView.
+        try {
+            int width=224,height=Math.min(300,Math.max(1,Math.round(page.view.getHeight()*224f/page.view.getWidth())));
+            Bitmap image=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);
+            Canvas canvas=new Canvas(image);canvas.drawColor(Color.WHITE);float scale=224f/page.view.getWidth();canvas.scale(scale,scale);
+            page.view.draw(canvas);previews.put(page.id,image);
+        } catch(RuntimeException|OutOfMemoryError ignored) { previews.remove(page.id); }
+    }
     private void showOverview() {
-        if(clearInProgress)return;
+        if(clearInProgress||overview!=null)return;
         address.clearFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(address.getWindowToken(),0);
-        LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(16),0,dp(16),dp(8));body.setFocusableInTouchMode(true);body.requestFocus();
-        overviewFilter=new EditText(this);overviewFilter.setSingleLine(true);overviewFilter.setHint("Find website tab");overviewFilter.setContentDescription("Find website tab");body.addView(overviewFilter);
-        Button add=button("+  New tab","New website tab",v->{dismissOverview();addTab(home,true);});add.setId(R.id.new_tab);add.setTextColor(ACCENT);body.addView(add);
-        Button reopen=button("Reopen last closed ("+session.closed.size()+")","Reopen last closed website tab",v->{TabSession.Tab tab=session.reopen();if(tab!=null){dismissOverview();select(tab.id);}else toast("No closed tabs, or the tab limit has been reached.");});body.addView(reopen);
-        ScrollView scroll=new ScrollView(this);overviewRows=new LinearLayout(this);overviewRows.setOrientation(LinearLayout.VERTICAL);scroll.addView(overviewRows);body.addView(scroll,new LinearLayout.LayoutParams(-1,dp(Math.min(300,Math.max(96,getResources().getConfiguration().screenHeightDp-300)))));
-        TextView note=new TextView(this);note.setText("Long-press a tab to pin, duplicate or reorder. Up to 12 tabs.");note.setTextSize(12);note.setPadding(0,dp(12),0,dp(8));body.addView(note);
-        overviewFilter.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int start,int count,int after){}public void onTextChanged(CharSequence s,int start,int before,int count){refreshOverview();}public void afterTextChanged(Editable e){}});
-        overview=new AlertDialog.Builder(this).setTitle("Website tabs").setView(body).setPositiveButton("Done",null).create();
-        overview.setOnDismissListener(d->{overview=null;overviewRows=null;overviewFilter=null;});refreshOverview();overview.show();overview.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+        capturePreview();
+        overview=new TabOverviewDialog(this,session,previews,new TabOverviewDialog.Actions(){
+            public void select(String id){dismissOverview();BrowserActivity.this.select(id);}
+            public void create(){dismissOverview();addTab(home,true);}
+            public void close(String id){closeTab(id);}
+            public boolean restore(String id){return restoreClosedTab(id);}
+            public void options(String id){showTabOptions(id);}
+        });
+        overview.setOnDismissListener(d->{overview=null;});overview.show();
     }
     private void dismissOverview(){if(overview!=null)overview.dismiss();}
-    private void refreshOverview() {
-        if(overviewRows==null)return;overviewRows.removeAllViews();String q=overviewFilter.getText().toString().toLowerCase(java.util.Locale.ROOT);
-        for(TabSession.Tab tab:session.tabs){
-            if(!(tab.label()+" "+tab.url).toLowerCase(java.util.Locale.ROOT).contains(q))continue;
-            LinearLayout line=row();line.setBackground(surface(tab.id.equals(session.activeId)?0xffeef0ff:Color.WHITE,14));Button pick=button((tab.pinned?"◆ ":"")+(tab.id.equals(session.activeId)?"● ":"")+tab.label(),"Go to "+tab.label(),v->{dismissOverview();select(tab.id);});
-            pick.setSingleLine(true);pick.setEllipsize(TextUtils.TruncateAt.END);pick.setOnLongClickListener(v->{showTabOptions(tab.id);return true;});line.addView(pick,new LinearLayout.LayoutParams(0,dp(48),1));
-            line.addView(button("×","Close "+tab.label(),v->closeTab(tab.id)));overviewRows.addView(line);
-        }
+    private void refreshOverview(){if(overview!=null)overview.refresh();}
+    private boolean restoreClosedTab(String id){
+        TabSession.Tab restored=session.reopen(id);
+        if(restored==null){toast("Close a tab first; maximum 12 website tabs.");return false;}
+        select(restored.id);store.save(session);refreshOverview();return true;
     }
     private void showTabOptions(String id) {
         TabSession.Tab tab=session.find(id);if(tab==null)return;
         new AlertDialog.Builder(this).setTitle(tab.label()).setItems(new String[]{tab.pinned?"Unpin":"Pin","Duplicate","Move left","Move right","Close tab"},(d,which)->{
-            dismissOverview();
             if(which==0){session.pin(id);renderChrome();store.save(session);}
-            if(which==1){TabSession.Tab copy=session.duplicate(id);if(copy==null)toast("Close a tab first; maximum 12.");else select(copy.id);}
+            if(which==1){TabSession.Tab copy=session.duplicate(id);if(copy==null)toast("Close a tab first; maximum 12.");else {dismissOverview();select(copy.id);}}
             if(which==2||which==3){session.move(id,which==2?-1:1);renderChrome();store.save(session);}
-            if(which==4)closeTab(id);
+            if(which==4){closeTab(id);if(overview!=null)overview.offerUndo(id);}
+            refreshOverview();
         }).show();
     }
     private void showOptions() {
@@ -318,14 +326,14 @@ public final class BrowserActivity extends Activity {
             if(which==2){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(session.active().url)));}catch(Exception e){toast("No external browser is available.");}}
             if(which==3){try{startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS));}catch(Exception e){toast("Android downloads app is unavailable.");}}
             if(which==4)new AlertDialog.Builder(this).setMessage("Close all unpinned website tabs? Pinned tabs stay. Only the last 10 closed tabs can reopen.").setNegativeButton("Cancel",null).setPositiveButton("Close tabs",(dialog,w)->{
-                for(TabSession.Tab tab:new ArrayList<>(session.tabs))if(!tab.pinned){destroyPage(tab.id);session.close(tab.id,home);}select(session.activeId);
+                for(TabSession.Tab tab:new ArrayList<>(session.tabs))if(!tab.pinned){previews.remove(tab.id);destroyPage(tab.id);session.close(tab.id,home);}select(session.activeId);
             }).show();
             if(which==5)new AlertDialog.Builder(this).setMessage("Close all tabs and remove saved tabs, cookies, cached pages and website storage from this app? Android-downloaded files remain.").setNegativeButton("Cancel",null).setPositiveButton("Clear",(dialog,w)->clearBrowserData()).show();
             if(which==6)new AlertDialog.Builder(this).setTitle("Real website tabs, native controls").setMessage("Android WebView preview, Android 10+. Website tabs stay under Loxiro's toolbar. Some sign-ins, uploads, camera/mic, fullscreen and blob/data downloads are not supported. Direct HTTP(S) file downloads use Android Download Manager after confirmation, not the web app's parallel downloader. Use your external browser for unsupported workflows. This is not a hardened Chrome replacement.").setPositiveButton("OK",null).show();
         }).show();
     }
     private void clearBrowserData() {
-        clearInProgress=true;dismissOverview();content.removeAllViews();
+        clearInProgress=true;dismissOverview();previews.clear();content.removeAllViews();
         for(Page p:pages.values())if(!p.crashed)p.view.clearCache(true);
         for(String id:new ArrayList<>(pages.keySet()))destroyPage(id);
         WebStorage.getInstance().deleteAllData();store.clear();
@@ -346,8 +354,8 @@ public final class BrowserActivity extends Activity {
     @Override protected void onPause(){super.onPause();Page p=activePage();if(p!=null&&!p.crashed)p.view.onPause();if(store!=null&&!clearInProgress)store.save(session);}
     @Override protected void onResume(){super.onResume();Page p=activePage();if(p!=null&&!p.crashed)p.view.onResume();}
     @Override protected void onSaveInstanceState(Bundle state){if(!clearInProgress)store.save(session);super.onSaveInstanceState(state);}
-    @Override public void onTrimMemory(int level){super.onTrimMemory(level);if(level>=TRIM_MEMORY_RUNNING_LOW)for(String id:new ArrayList<>(pages.keySet()))if(!id.equals(session.activeId))destroyPage(id);}
-    @Override protected void onDestroy(){destroying=true;dismissOverview();if(store!=null&&!clearInProgress)store.save(session);for(String id:new ArrayList<>(pages.keySet()))destroyPage(id);super.onDestroy();}
+    @Override public void onTrimMemory(int level){super.onTrimMemory(level);if(level>=TRIM_MEMORY_RUNNING_LOW){previews.clear();for(String id:new ArrayList<>(pages.keySet()))if(!id.equals(session.activeId))destroyPage(id);refreshOverview();}}
+    @Override protected void onDestroy(){destroying=true;dismissOverview();previews.clear();if(store!=null&&!clearInProgress)store.save(session);for(String id:new ArrayList<>(pages.keySet()))destroyPage(id);super.onDestroy();}
     // Package-private instrumentation observations; not exposed to website JavaScript.
     int nativeTabCount(){return session.tabs.size();}
     String activeUrl(){return session.active().url;}
