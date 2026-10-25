@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 900" width="420" height="900" role="img" aria-label="Loxiro mobile app home screen concept">
+  <defs>
+    <radialGradient id="canvas" cx="50%" cy="38%" r="70%">
+      <stop offset="0%" stop-color="#F3F2EE"/>
+      <stop offset="100%" stop-color="#E8E7E1"/>
+    </radialGradient>
+    <filter id="soft" x="-30%" y="-60%" width="160%" height="220%">
+      <feDropShadow dx="0" dy="4" stdDeviation="9" flood-color="#14151A" flood-opacity="0.07"/>
+    </filter>
+    <style>
+      .ui { font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+      .ink { fill: #14151A; }
+      .muted { fill: #8E8F93; }
+      .faint { fill: #A9AAAE; }
+      .accent { fill: #3B5BFF; }
+      .stroke-ink { stroke: #14151A; }
+      .stroke-accent { stroke: #3B5BFF; }
+    </style>
+  </defs>
+
+  <!-- canvas -->
+  <rect width="420" height="900" fill="url(#canvas)"/>
+
+  <!-- phone -->
+  <rect x="40" y="30" width="340" height="840" rx="46" fill="#F7F6F2" stroke="#DFDED8" stroke-width="1"/>
+
+  <!-- status bar -->
+  <g class="ui">
+    <text x="68" y="72" font-size="12" font-weight="600" class="ink" letter-spacing="0.2">9:41</text>
+    <g transform="translate(310 62)" fill="none" class="stroke-ink" stroke-width="1.4" stroke-linecap="round">
+      <rect x="0" y="6" width="3" height="4" rx="1" fill="#14151A" stroke="none"/>
+      <rect x="5" y="4" width="3" height="6" rx="1" fill="#14151A" stroke="none"/>
+      <rect x="10" y="2" width="3" height="8" rx="1" fill="#14151A" stroke="none"/>
+      <path d="M18 4.5a7 7 0 0 1 9 0"/>
+      <path d="M20.5 7a3.5 3.5 0 0 1 4 0"/>
+      <circle cx="22.5" cy="9.5" r="0.9" fill="#14151A" stroke="none"/>
+      <rect x="31" y="2.5" width="14" height="8" rx="2.4"/>
+      <rect x="32.6" y="4.1" width="9" height="4.8" rx="1.2" fill="#14151A" stroke="none"/>
+      <rect x="46" y="5" width="1.8" height="3" rx="0.9" fill="#14151A" stroke="none"/>
+    </g>
+  </g>
+
+  <!-- wordmark -->
+  <g class="ui">
+    <text x="68" y="192" font-size="46" font-weight="650" letter-spacing="-2" class="ink">Loxiro</text>
+    <circle cx="205" cy="176" r="4.2" class="accent"/>
+    <text x="69" y="222" font-size="12" letter-spacing="0.4" class="muted">Search, without the noise.</text>
+  </g>
+
+  <!-- search field -->
+  <g filter="url(#soft)">
+    <rect x="68" y="258" width="284" height="58" rx="29" fill="#FFFFFF" stroke="#E6E5DF" stroke-width="1"/>
+  </g>
+  <g fill="none" stroke="#14151A" stroke-width="1.8" stroke-linecap="round">
+    <circle cx="92" cy="287" r="7.2"/>
+    <path d="M97.5 292.5 L103.5 298.5"/>
+  </g>
+  <g class="ui">
+    <text x="118" y="292" font-size="14" class="faint">Search anything</text>
+  </g>
+  <path d="M331 277 L333.2 284 L340 286.2 L333.2 288.4 L331 295.4 L328.8 288.4 L322 286.2 L328.8 284 Z" class="accent"/>
+
+  <!-- engine chips -->
+  <g class="ui" font-size="10.5" font-weight="500">
+    <!-- Google (active) -->
+    <rect x="68" y="338" width="66" height="30" rx="15" fill="#EDF0FF" stroke="#CBD4FF" stroke-width="1"/>
+    <circle cx="82" cy="353" r="3.4" fill="#3B5BFF"/>
+    <text x="91" y="357" fill="#2B3C9C">Google</text>
+    <!-- Bing -->
+    <rect x="142" y="338" width="50" height="30" rx="15" fill="#FFFFFF" stroke="#E8E7E2" stroke-width="1"/>
+    <circle cx="156" cy="353" r="3.4" fill="#008373"/>
+    <text x="165" y="357" fill="#5B5C60">Bing</text>
+    <!-- DuckDuckGo -->
+    <rect x="200" y="338" width="88" height="30" rx="15" fill="#FFFFFF" stroke="#E8E7E2" stroke-width="1"/>
+    <circle cx="214" cy="353" r="3.4" fill="#DE5833"/>
+    <text x="223" y="357" fill="#5B5C60">DuckDuckGo</text>
+    <!-- Brave -->
+    <rect x="296" y="338" width="56" height="30" rx="15" fill="#FFFFFF" stroke="#E8E7E2" stroke-width="1"/>
+    <circle cx="310" cy="353" r="3.4" fill="#FB542B"/>
+    <text x="319" y="357" fill="#5B5C60">Brave</text>
+  </g>
+
+  <!-- recent header -->
+  <g class="ui" font-size="10.5" font-weight="600" letter-spacing="1.5">
+    <text x="69" y="418" class="faint">RECENT</text>
+    <text x="352" y="418" text-anchor="end" font-weight="500" letter-spacing="0" class="accent">Clear</text>
+  </g>
+
+  <!-- recent rows -->
+  <g class="ui">
+    <!-- row 1 -->
+    <circle cx="84" cy="457" r="15" fill="#EAF0FF"/>
+    <text x="84" y="461" font-size="11" font-weight="700" text-anchor="middle" class="accent">G</text>
+    <text x="110" y="453" font-size="12.5" font-weight="500" class="ink">best coffee in Guatemala City</text>
+    <text x="110" y="469" font-size="10" class="faint">Google · 2h ago</text>
+    <path d="M338 452 l5 5 l-5 5" fill="none" stroke="#C9C8C3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="68" y1="486" x2="352" y2="486" stroke="#E9E8E3" stroke-width="1"/>
+
+    <!-- row 2 -->
+    <circle cx="84" cy="519" r="15" fill="#FFF0E9"/>
+    <text x="84" y="523" font-size="11" font-weight="700" text-anchor="middle" fill="#D9511F">B</text>
+    <text x="110" y="515" font-size="12.5" font-weight="500" class="ink">minimalist UI inspiration</text>
+    <text x="110" y="531" font-size="10" class="faint">Brave · yesterday</text>
+    <path d="M338 514 l5 5 l-5 5" fill="none" stroke="#C9C8C3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="68" y1="548" x2="352" y2="548" stroke="#E9E8E3" stroke-width="1"/>
+
+    <!-- row 3 -->
+    <circle cx="84" cy="581" r="15" fill="#FDEEE8"/>
+    <text x="84" y="585" font-size="11" font-weight="700" text-anchor="middle" fill="#C74E2C">D</text>
+    <text x="110" y="577" font-size="12.5" font-weight="500" class="ink">how to learn rust fast</text>
+    <text x="110" y="593" font-size="10" class="faint">DuckDuckGo · 3d ago</text>
+    <path d="M338 576 l5 5 l-5 5" fill="none" stroke="#C9C8C3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="68" y1="610" x2="352" y2="610" stroke="#E9E8E3" stroke-width="1"/>
+  </g>
+
+  <!-- interaction hint -->
+  <g class="ui">
+    <rect x="68" y="642" width="284" height="46" rx="14" fill="#FFFFFF" stroke="#EBEAE5" stroke-width="1"/>
+    <path d="M88 657 L90 663 L96 665 L90 667 L88 673 L86 667 L80 665 L86 663 Z" class="accent"/>
+    <text x="108" y="660" font-size="11" font-weight="600" class="ink">Tip</text>
+    <text x="108" y="674" font-size="10.5" class="muted">Swipe on results to switch engines.</text>
+  </g>
+
+  <!-- bottom navigation -->
+  <g filter="url(#soft)">
+    <rect x="68" y="778" width="284" height="64" rx="32" fill="#FFFFFF" stroke="#E9E8E3" stroke-width="1"/>
+  </g>
+  <g fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- search (active) -->
+    <g class="stroke-accent">
+      <circle cx="104" cy="806" r="7.6"/>
+      <path d="M109.8 811.8 L115.5 817.5"/>
+    </g>
+    <!-- layers -->
+    <g stroke="#9A9B9F">
+      <path d="M166 801 l8 -4 l8 4 l-8 4 z"/>
+      <path d="M166 808 l8 4 l8 -4"/>
+      <path d="M166 815 l8 4 l8 -4"/>
+    </g>
+    <!-- bookmark -->
+    <g stroke="#9A9B9F">
+      <path d="M238 799.5 h12 v17 l-6 -4.2 l-6 4.2 z"/>
+    </g>
+    <!-- settings / sliders -->
+    <g stroke="#9A9B9F">
+      <path d="M306 801 h16"/>
+      <path d="M306 809 h16"/>
+      <path d="M306 817 h16"/>
+      <circle cx="313" cy="801" r="2.2" fill="#FFFFFF"/>
+      <circle cx="319" cy="809" r="2.2" fill="#FFFFFF"/>
+      <circle cx="311" cy="817" r="2.2" fill="#FFFFFF"/>
+    </g>
+  </g>
+  <circle cx="104" cy="830" r="2.2" class="accent"/>
+
+  <!-- home indicator -->
+  <rect x="180" y="852" width="60" height="5" rx="2.5" fill="#C9C8C3"/>
+
+  <!-- board caption -->
+  <g class="ui" font-size="9" font-weight="600" letter-spacing="2.2">
+    <text x="210" y="886" text-anchor="middle" fill="#A6A5A0">LOXIRO — CONCEPT 01 / HOME</text>
+  </g>
+</svg>

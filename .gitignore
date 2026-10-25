@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+
+# Build output (future Vite app)
+dist/
+.vite/
+*.local
+
+# Editor / OS
+.DS_Store
+Thumbs.db
