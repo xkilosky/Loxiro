@@ -9,4 +9,7 @@
     <item name="tab_filter_all" type="id" />
     <item name="tab_filter_pinned" type="id" />
     <item name="tab_filter_closed" type="id" />
+    <item name="browser_settings" type="id" />
+    <item name="website_text_zoom" type="id" />
+    <item name="website_text_zoom_value" type="id" />
 </resources>

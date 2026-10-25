@@ -59,6 +59,9 @@ public final class BrowserActivity extends Activity {
     private final LinkedHashMap<String, Page> pages=new LinkedHashMap<>();
     private TabSession session;
     private SessionStore store;
+    private SettingsStore settingsStore;
+    private BrowserSettings preferences;
+    private BrowserSettingsDialog settingsDialog;
     private String home=UrlPolicy.HOME;
     private FrameLayout content;
     private EditText address;
@@ -86,7 +89,8 @@ public final class BrowserActivity extends Activity {
             Uri u=Uri.parse(override);
             if("127.0.0.1".equals(u.getHost()) || "localhost".equals(u.getHost()))home=override;
         }
-        store=new SessionStore(this);session=store.restore(home);buildChrome();
+        settingsStore=new SettingsStore(this);preferences=settingsStore.load();
+        store=new SessionStore(this);session=store.restore(home);buildChrome();applyPreferences();
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
             android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::handleBack);
         select(session.activeId);
@@ -184,6 +188,7 @@ public final class BrowserActivity extends Activity {
         settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setSafeBrowsingEnabled(true);settings.setGeolocationEnabled(false);settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setUseWideViewPort(true);settings.setLoadWithOverviewMode(true);
+        configureReading(settings);
         settings.setSupportMultipleWindows(true);settings.setJavaScriptCanOpenWindowsAutomatically(false);
         settings.setUserAgentString(settings.getUserAgentString()+" LoxiroAndroid/0.7");
         CookieManager.getInstance().setAcceptThirdPartyCookies(view,false);
@@ -276,7 +281,7 @@ public final class BrowserActivity extends Activity {
     private void toast(String text){Toast.makeText(this,text,Toast.LENGTH_LONG).show();}
     private void capturePreview() {
         Page page=activePage();
-        if(page==null||page.crashed||page.loading||page.view.getWidth()==0||page.view.getHeight()==0)return;
+        if(!preferences.tabPreviews||page==null||page.crashed||page.loading||page.view.getWidth()==0||page.view.getHeight()==0)return;
         // Snapshot only the currently visible viewport, never a full page or a background WebView.
         try {
             int width=224,height=Math.min(300,Math.max(1,Math.round(page.view.getHeight()*224f/page.view.getWidth())));
@@ -296,7 +301,7 @@ public final class BrowserActivity extends Activity {
             public boolean restore(String id){return restoreClosedTab(id);}
             public void options(String id){showTabOptions(id);}
         });
-        overview.setOnDismissListener(d->{overview=null;});overview.show();
+        overview.setOnDismissListener(d->{overview=null;});overview.show();setKeepAwake(overview.getWindow());
     }
     private void dismissOverview(){if(overview!=null)overview.dismiss();}
     private void refreshOverview(){if(overview!=null)overview.refresh();}
@@ -316,7 +321,9 @@ public final class BrowserActivity extends Activity {
         }).show();
     }
     private void showOptions() {
-        new AlertDialog.Builder(this).setTitle("Loxiro Android Preview").setItems(new String[]{"Website tabs","Reopen last closed tab","Open page in external browser","Android downloads","Close unpinned tabs","Clear browser data","About this preview","Home","Forward","Reload / stop","New tab"},(d,which)->{
+        new AlertDialog.Builder(this).setTitle("Loxiro Android Preview").setItems(new String[]{"Browser settings","Website tabs","Reopen last closed tab","Open page in external browser","Android downloads","Close unpinned tabs","Clear browser data","About this preview","Home","Forward","Reload / stop","New tab"},(d,choice)->{
+            if(choice==0){showSettings();return;}
+            int which=choice-1;
             if(which==7)navigate(home);
             if(which==8){Page p=activePage();if(p!=null&&!p.crashed&&p.view.canGoForward())p.view.goForward();}
             if(which==9){Page p=activePage();if(p!=null&&!p.crashed&&p.loading)p.view.stopLoading();else reloadActive();}
@@ -328,9 +335,44 @@ public final class BrowserActivity extends Activity {
             if(which==4)new AlertDialog.Builder(this).setMessage("Close all unpinned website tabs? Pinned tabs stay. Only the last 10 closed tabs can reopen.").setNegativeButton("Cancel",null).setPositiveButton("Close tabs",(dialog,w)->{
                 for(TabSession.Tab tab:new ArrayList<>(session.tabs))if(!tab.pinned){previews.remove(tab.id);destroyPage(tab.id);session.close(tab.id,home);}select(session.activeId);
             }).show();
-            if(which==5)new AlertDialog.Builder(this).setMessage("Close all tabs and remove saved tabs, cookies, cached pages and website storage from this app? Android-downloaded files remain.").setNegativeButton("Cancel",null).setPositiveButton("Clear",(dialog,w)->clearBrowserData()).show();
+            if(which==5)confirmClearData();
             if(which==6)new AlertDialog.Builder(this).setTitle("Real website tabs, native controls").setMessage("Android WebView preview, Android 10+. Website tabs stay under Loxiro's toolbar. Some sign-ins, uploads, camera/mic, fullscreen and blob/data downloads are not supported. Direct HTTP(S) file downloads use Android Download Manager after confirmation, not the web app's parallel downloader. Use your external browser for unsupported workflows. This is not a hardened Chrome replacement.").setPositiveButton("OK",null).show();
         }).show();
+    }
+    private void configureReading(WebSettings settings){
+        settings.setTextZoom(preferences.textZoom);
+        settings.setSupportZoom(preferences.pinchZoom);settings.setBuiltInZoomControls(preferences.pinchZoom);settings.setDisplayZoomControls(false);
+    }
+    private void setKeepAwake(android.view.Window window){
+        if(preferences.keepScreenOn)window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+    private void applyPreferences(){
+        settingsStore.save(preferences);setKeepAwake(getWindow());
+        for(Page page:pages.values())if(!page.crashed)configureReading(page.view.getSettings());
+        if(!preferences.tabPreviews)previews.clear();refreshOverview();
+        LinearLayout toolbar=findViewById(R.id.browser_toolbar);
+        toolbar.getLayoutParams().height=dp(preferences.largeControls?72:56);
+        for(int i=0;i<toolbar.getChildCount();i++){View child=toolbar.getChildAt(i);child.getLayoutParams().height=dp(preferences.largeControls?64:48);}
+        address.setTextSize(preferences.largeControls?17:13);tabCount.setTextSize(preferences.largeControls?16:14);toolbar.requestLayout();
+        if(settingsDialog!=null)setKeepAwake(settingsDialog.getWindow());
+        if(overview!=null)setKeepAwake(overview.getWindow());
+    }
+    private void showSettings(){
+        if(clearInProgress||settingsDialog!=null)return;
+        address.clearFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(address.getWindowToken(),0);
+        settingsDialog=new BrowserSettingsDialog(this,preferences,new BrowserSettingsDialog.Actions(){
+            public void changed(){applyPreferences();}
+            public void accessibility(){openSystemSettings(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);}
+            public void display(){openSystemSettings(android.provider.Settings.ACTION_DISPLAY_SETTINGS);}
+            public void downloads(){try{startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS));}catch(Exception e){toast("Android downloads is unavailable.");}}
+            public void clearData(){confirmClearData();}
+        });
+        settingsDialog.setOnDismissListener(d->{settingsDialog=null;});settingsDialog.show();setKeepAwake(settingsDialog.getWindow());
+    }
+    private void openSystemSettings(String action){try{startActivity(new Intent(action));}catch(Exception e){toast("This Android settings screen is unavailable on your device.");}}
+    private void confirmClearData(){
+        new AlertDialog.Builder(this).setTitle("Clear browser data?").setMessage("Close native tabs and remove cookies, website storage and cached pages? Android-downloaded files and browser settings remain.").setNegativeButton("Cancel",null).setPositiveButton("Clear",(d,w)->clearBrowserData()).show();
     }
     private void clearBrowserData() {
         clearInProgress=true;dismissOverview();previews.clear();content.removeAllViews();
@@ -355,8 +397,10 @@ public final class BrowserActivity extends Activity {
     @Override protected void onResume(){super.onResume();Page p=activePage();if(p!=null&&!p.crashed)p.view.onResume();}
     @Override protected void onSaveInstanceState(Bundle state){if(!clearInProgress)store.save(session);super.onSaveInstanceState(state);}
     @Override public void onTrimMemory(int level){super.onTrimMemory(level);if(level>=TRIM_MEMORY_RUNNING_LOW){previews.clear();for(String id:new ArrayList<>(pages.keySet()))if(!id.equals(session.activeId))destroyPage(id);refreshOverview();}}
-    @Override protected void onDestroy(){destroying=true;dismissOverview();previews.clear();if(store!=null&&!clearInProgress)store.save(session);for(String id:new ArrayList<>(pages.keySet()))destroyPage(id);super.onDestroy();}
+    @Override protected void onDestroy(){destroying=true;dismissOverview();if(settingsDialog!=null)settingsDialog.dismiss();previews.clear();if(store!=null&&!clearInProgress)store.save(session);for(String id:new ArrayList<>(pages.keySet()))destroyPage(id);super.onDestroy();}
     // Package-private instrumentation observations; not exposed to website JavaScript.
+    int previewCount(){return previews.size();}
+    BrowserSettings nativeSettings(){return preferences;}
     int nativeTabCount(){return session.tabs.size();}
     String activeUrl(){return session.active().url;}
     String activeTitle(){return session.active().title;}

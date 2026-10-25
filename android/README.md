@@ -30,6 +30,19 @@ The **Android browser preview** GitHub workflow builds an installable debug APK 
 - Undo restores the exact closed tab; Closed lets you choose among the last 10. URL/title/pin state restores, not form data or complete browsing state. At the 12-tab cap, restoration requires closing a tab first.
 - Automated Android 15 checks cover real website switching, grid sizing, pin filters, close/undo/restore, portrait/landscape reachability, session recreation and the unchanged compact browsing toolbar. Fixture screenshots are included in the test reports artifact; they do not establish physical-device or every-website compatibility.
 
+## Native browser settings (preview.4)
+
+Open **⋮ → Browser settings** (first menu item). Preferences use app-private `native-settings-v1` SharedPreferences, separate from the hosted Home app. Changes apply immediately to existing and new WebViews and survive Activity recreation/relaunch.
+
+- **Website text zoom: 75–200%**, slider and accessible ±5% buttons, plus reset to 100%. This uses WebView text zoom; it does not resize images, native controls or override every website’s fixed layout. The slider exposes the actual percentage to accessibility services.
+- **Pinch-to-zoom** enabled by default, without floating zoom buttons. Sites can limit their supported zoom range; this is not a force-zoom/CSS bypass.
+- **Roomier address bar:** opt-in 72dp native toolbar with larger address text; the default remains the compact 56dp toolbar. All native text uses scale-independent units and follows Android font scaling. Links to Android Accessibility and Display settings let users configure TalkBack, magnification, font and display size; the app does not enable accessibility services itself.
+- **Tab preview privacy:** turning previews off immediately discards cached snapshots and prevents new ones until enabled again. Snapshots remain memory-only.
+- **Keep screen awake:** optional foreground-window flag, off by default. Can increase battery use; no background service or new permission.
+- **Other:** Android downloads, confirmed native browser-data clearing, and confirmed settings reset. Clearing browser data retains these preferences and downloaded public files. Settings reset changes only preferences, not tabs/cookies/downloads.
+
+Build/lint/JVM tests and Android 15 emulator tests must pass before delivery. Native tests cover live/future WebView zoom, toggles, roomier toolbar, preview suppression, persistence, reset, and malformed stored preferences. This is not a full TalkBack or physical-device accessibility audit.
+
 ## Security / limits
 
 No JavaScript-to-native interface, native filesystem bridge, remote native-code configuration, CORS proxy, certificate-error bypass, file/content navigation, or automatic external-app intents. Main-frame URLs are HTTP/HTTPS only, with credential-bearing URLs rejected. Native chrome shows the actual navigated URL; unknown popup destinations show `about:blank`, never a fabricated trusted Home URL. User activation is required for popup tabs. File/content access is off, mixed content is blocked, WebView Safe Browsing stays enabled, camera/mic/geolocation permissions are not granted. Plain HTTP is allowed as a browser navigation and is marked insecure in the address field.
