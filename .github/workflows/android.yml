@@ -48,6 +48,19 @@ jobs:
           disable-animations: true
           working-directory: android
           script: ./gradlew --no-daemon connectedDebugAndroidTest
+      - name: Publish instrumentation failure diagnostics
+        if: failure()
+        run: |
+          python3 - <<'PYTHON'
+          import glob, xml.etree.ElementTree as ET
+          for path in glob.glob('app/build/outputs/androidTest-results/**/*.xml', recursive=True):
+              for case in ET.parse(path).iter('testcase'):
+                  for kind in ('failure', 'error'):
+                      for failure in case.findall(kind):
+                          message = (case.get('name', '') + ': ' + (failure.text or failure.get('message', '')))[:12000]
+                          message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                          print('::error title=Android instrumentation failure::' + message)
+          PYTHON
       - name: Collect visual tab-switcher screenshots
         if: always()
         run: |

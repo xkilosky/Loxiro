@@ -149,7 +149,7 @@ public final class BrowserActivity extends Activity {
         TabSession.Tab tab=session.active();if(tab==null)return;
         address.clearFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(address.getWindowToken(),0);
         Page p=activePage();if(p==null || p.crashed){destroyPage(tab.id);p=createPage(tab);attach(p);}
-        tab.url=url;tab.title="";p.error="";p.view.loadUrl(url);store.save(session);renderChrome();
+        previews.remove(tab.id);tab.url=url;tab.title="";p.error="";p.view.loadUrl(url);store.save(session);renderChrome();
     }
     private TabSession.Tab addTab(String url,boolean load) {
         if(clearInProgress)return null;
@@ -242,7 +242,7 @@ public final class BrowserActivity extends Activity {
     }
     private boolean alive(Page page) { return !destroying && !page.crashed && pages.get(page.id)==page && session.find(page.id)!=null; }
     private Page activePage() { return session==null?null:pages.get(session.activeId); }
-    private void changed(Page page) {store.save(session);if(page.id.equals(session.activeId))renderChrome();}
+    private void changed(Page page) {store.save(session);if(page.id.equals(session.activeId))renderChrome();refreshOverview();}
     private void renderChrome() {
         if(destroying||clearInProgress||session.active()==null)return;
         TabSession.Tab active=session.active();Page page=activePage();

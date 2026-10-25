@@ -46,7 +46,7 @@ final class TabOverviewDialog extends Dialog {
     private int columns;
 
     TabOverviewDialog(BrowserActivity activity, TabSession session, Map<String,Bitmap> previews, Actions actions) {
-        super(activity, android.R.style.Theme_Material_Light_NoActionBar);
+        super(activity, R.style.AppTheme);
         this.session=session;this.previews=previews;this.actions=actions;
         build();
     }
@@ -90,7 +90,7 @@ final class TabOverviewDialog extends Dialog {
         refresh();
     }
     @Override public void show(){super.show();getWindow().setLayout(-1,-1);}
-    private int columnCount(int width){int usable=Math.round(width/getContext().getResources().getDisplayMetrics().density);return Math.max(1,Math.min(4,usable/170));}
+    private int columnCount(int width){int usable=Math.round(width/getContext().getResources().getDisplayMetrics().density);return Math.max(1,Math.min(4,usable/156));}
     private void chooseFilter(int value){filter=value;scroll.scrollTo(0,0);refresh();}
     void refresh(){
         if(grid==null)return;
