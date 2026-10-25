@@ -36,6 +36,7 @@ For local development run `npm run dev:api` in a second terminal. Optional secre
 - **Smart routing:** recognizes URLs, questions, code queries, calculations, colors, conversions, and bang shortcuts (`!yt`, `!w`, `!gh`, `!so`, and more).
 - **Smart tools:** safe arithmetic parser (no eval), unit conversion, HEX/RGB/HSL color studio, text counts/transforms/export. They work offline.
 - **Smart Downloads:** verified HTTP byte-range downloads with up to 8, 16, or 32 parts per file (8 by default), size-adaptive part counts, ordered assembly, single-stream fallback, actual bytes/speed, 1–4 queued files at a time, a shared 32-request budget, cancel/retry, and persisted history. Includes a same-origin sample file to try. Browser connection limits still apply.
+- **Tab workspace:** up to 30 local tabs for searches and Loxiro pages, independent search drafts, pin/unpin, duplicate, reorder, close/reopen (last 10), searchable mobile overview, confirmed bulk close, and automatic local session restoration. Website links still open externally.
 - **Spaces:** create colored collections, save links, filter, delete, and copy. Deleting a space moves its links to Reading list.
 - **Settings:** light/dark/system theme, reduced motion, recent-history toggle, new-tab preference, JSON data export, clear data.
 - **PWA:** manifest, generated icons, offline app shell, browser installation instructions and native install prompt where supported.
@@ -45,7 +46,7 @@ For local development run `npm run dev:api` in a second terminal. Optional secre
 
 This is a **web search companion**, not a new Chromium rendering engine. It does not render arbitrary sites internally, install browser extensions, or change your device's default browser.
 
-Unified searches call a serverless aggregation endpoint; queries are shared with its connected providers, which have their own privacy policies. HTTP responses are private/no-store. Public result snippets are cached only in server memory with a 60-second TTL and hashed query keys; nothing is written to disk as search history. Hosting-provider request logs may include queries. There is no analytics, account system, or AI model inference. “Smart” means deterministic on-device tools and routing, not generated AI answers.
+Unified searches call a serverless aggregation endpoint; queries are shared with its connected providers, which have their own privacy policies. HTTP responses are private/no-store. Public result snippets are cached only in server memory with a 60-second TTL and hashed query keys; the search server does not write history to disk. Open and recently closed tabs, drafts, and optional recent searches are stored locally in your browser. Hosting-provider request logs may include queries. There is no analytics, account system, or AI model inference. “Smart” means deterministic on-device tools and routing, not generated AI answers.
 
 Download speed depends on your network and source server. No acceleration guarantee. In-app sources must allow CORS; blocked or very large sources can be opened directly in your browser. Transfers are limited to **200 MB per file**, buffered in memory, and require the app to stay open. There is no resumable/background-transfer claim. Interrupted transfers become cancelled after reload. Browser downloads remain on disk when local app data is cleared.
 
@@ -88,6 +89,10 @@ src/styles/app.css            Responsive design system and both themes
 src/data/                     Engines, bangs, suggestions
 src/lib/smart.ts              Safe parser, conversions, color/intent logic
 src/lib/storage.ts            Persistence, URL checks, file helpers
+src/lib/tabs.ts               Bounded tab reducer, route serialization, session validation
+src/hooks/useTabs.ts          Local tab workspace persistence
+src/hooks/useUnifiedSearch.ts Tab-isolated search, cancellation, short-lived result cache
+src/components/TabWorkspace.tsx Tab strip and searchable management dialog
 src/hooks/useDownloads.ts     Queue, cancellation, shared request budget
 src/lib/download.ts           Verified parallel byte-range transfer engine
 server/search.mjs             HTTP boundary and unified aggregation
@@ -141,3 +146,19 @@ Open **Downloads → Parts per file** and select **8** (recommended), **16**, **
 - Files are still buffered in memory, capped at **200 MiB (shown as 200 MB in the interface) per file**; simultaneous files can use more memory. Keep Loxiro open. No disk-streaming, background completion, pause/resume, or guaranteed speed multiplier is promised. More parts can be slower, especially on small files or saturated connections. No general internet acceleration benchmark has been performed.
 
 `npm test` includes range partitioning, 8/16/32-way concurrent requests, ordered SHA-256 comparisons, validator/range errors, truncation/overflow, fallback, limits, cancellation, retry, and queue-budget tests. `npm run test:downloads` uses a real local cross-origin HTTP server and browser, including CORS preflights and SHA-256 checks of **saved files**, not mocked fetch responses. It also checks failed-source fallback, active cancellation, honest CORS failure, preference persistence, light/dark accessibility, and responsive layout. This controlled fixture establishes correctness, **not real-world speed gains or arbitrary source compatibility**.
+
+
+### Tab management (v0.6)
+
+Use **+** in the tab strip to create a Loxiro tab. The **stack icon / tab count** opens the searchable tab overview on desktop and mobile.
+
+- Keep up to **30 open tabs** with independent submitted searches, search drafts, current Loxiro page, and search engine routing context. Switch without overwriting another tab. Pin important tabs, duplicate a tab, reorder within the pinned or unpinned group using left/right controls, close individual tabs, and reopen the last **10** closed tabs.
+- Pinned tabs stay first and are protected from **confirmed bulk closing**. They can still be closed explicitly. Closing the final tab creates a blank one instead of closing the app. Reopening restores the route/draft/pin, not an external browser window.
+- Sessions restore from `loxiro:v2:tabs` on this device. A matching explicit hash route retains an unsent draft on reload; direct links navigate the relevant/current workspace tab without erasing other tabs. URL hashes include the tab ID so browser back/forward can select an existing referenced tab. This is one browser history, not a separate full navigation stack for each workspace tab.
+- Tabs **save their queries and drafts locally even when recent-search history is disabled**. JSON export includes open/closed tab sessions. **Clear all data** deletes both. Storage-disabled contexts keep usable in-memory tabs without promising restoration. There is no account, cross-device sync, or cross-window conflict resolution; windows share the local storage key, so the latest persisted window wins on a later reload.
+- Only the active search is fetched. Switching cancels pending work; late responses cannot replace another tab's results. Fresh responses can be reused from a bounded **30-entry / 60-second in-memory cache**, and manual retries bypass it. Results themselves are not stored in the tab session or restored offline as a complete result archive.
+- Downloads remain app-wide and continue when their originating workspace tab closes, while Loxiro remains open. Smart-tool input state, Spaces filters, settings, scroll position, and download tasks are shared app state, **not independent browser documents per tab**. External sites still open in your browser according to Settings. Loxiro cannot inspect, embed arbitrary sites in, or control actual Chrome/Safari tabs.
+
+Keyboard controls: **Alt+Shift+N** new tab; **Alt+Shift+W** close current Loxiro tab; **Alt+Shift+T** reopen. With a tab title focused, **Left/Right/Home/End** switch tabs and **Delete** closes it. These do not replace native Ctrl/Cmd+T/W browser shortcuts; OS/browser interception can still apply. Tab actions are also available as buttons. Shortcuts do not operate behind an open dialog.
+
+Validation: `npm test` includes tab reducer/session-sanitization/persistence and isolated-search race/cache tests. `npm run test:tabs` adds end-to-end tab operations, local session/draft restoration, browser back/forward, keyboard/focus behavior, confirmed bulk closing, 30-tab mobile layout/cap, clear-all, closed-history bounds, website-link scope, download continuation after tab closure, both-theme axe checks, and 360/390/768/1440 responsive checks. Search API fixtures make these UI tests repeatable; they are not live-provider quality tests. The existing app and real cross-origin download suites still pass.

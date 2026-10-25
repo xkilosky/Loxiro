@@ -7,7 +7,7 @@ import {
   Palette, Type, RefreshCw, FileDown, Pause, CheckCircle2, AlertCircle, WifiOff,
   Sun, Moon, Monitor, Smartphone, Keyboard, Folder, Link2, LoaderCircle, Menu,
 } from 'lucide-react';
-import type { EngineId, Screen, Settings, SavedLink, Space, RecentSearch, UnifiedResult, UnifiedSearchResponse, SearchProviderState } from './types';
+import type { EngineId, Screen, Settings, SavedLink, Space, RecentSearch, SearchProviderState } from './types';
 import { WEB_ENGINES, VERTICAL_ENGINES, getEngine, engineUrl } from './data/engines';
 import { BANGS } from './data/bangs';
 import { QUICK_EXAMPLES, SUGGESTIONS } from './data/suggestions';
@@ -15,6 +15,10 @@ import { analyze, calculate, convert, formatNumber, parseColor, textStats, relat
 import { load, persist, uid, safeUrl, saveBlob, formatBytes } from './lib/storage';
 import { useDownloads } from './hooks/useDownloads';
 import { SiteIcon } from './components/SiteIcon';
+import { TabBar, TabManager } from './components/TabWorkspace';
+import { useTabs } from './hooks/useTabs';
+import { useUnifiedSearch } from './hooks/useUnifiedSearch';
+import { MAX_TABS, tabHash, type TabRoute } from './lib/tabs';
 
 function providerMessage(p: SearchProviderState): string {
   if(p.status==='not_configured')return p.access==='free-key'?'Free tier · API key required':'API key required';
@@ -33,26 +37,25 @@ const NAV = [
 ] as const;
 type InstallEvent = Event & {prompt: () => Promise<void>; userChoice: Promise<{outcome:string}>};
 
-function readRoute(): {screen: Screen; q: string; engine?: EngineId} {
+function readRoute(): TabRoute {
   const [page, params] = location.hash.slice(1).split('?');
   const p = new URLSearchParams(params); const e = p.get('engine');
   const screen = ['results','smart','spaces','downloads','settings'].includes(page) ? page as Screen : 'home';
   const engine = [...WEB_ENGINES,...VERTICAL_ENGINES].some(v=>v.id===e) ? e as EngineId : undefined;
-  return {screen, q:p.get('q') || '', engine};
+  return {screen, q:(p.get('q') || '').slice(0,200), engine, tabId:p.get('tab') || undefined};
 }
 
 export default function App() {
   const initial = useRef(readRoute());
-  const [screen,setScreen] = useState<Screen>(initial.current.screen);
-  const [query,setQuery] = useState(initial.current.q);
-  const [submitted,setSubmitted] = useState(initial.current.q);
   const [settings,setSettings] = useState<Settings>(()=>({...DEFAULTS,...load('settings',{})}));
-  const [engine,setEngine] = useState<EngineId>(initial.current.engine || settings.defaultEngine);
+  const tabs = useTabs(initial.current, settings.defaultEngine);
+  const {screen, q:submitted, draft:query, engine} = tabs.active;
+  const setQuery = tabs.setDraft;
   const [recents,setRecents] = useState<RecentSearch[]>(()=>load('recents',[]));
   const [saved,setSaved] = useState<SavedLink[]>(()=>load('saved',[]));
   const [spaces,setSpaces] = useState<Space[]>(()=>load('spaces',INITIAL_SPACES));
   const [toast,setToast] = useState('');
-  const [modal,setModal] = useState<'save'|'space'|'download'|'shortcuts'|'clear'|null>(null);
+  const [modal,setModal] = useState<'save'|'space'|'download'|'shortcuts'|'clear'|'tabs'|null>(null);
   const [saveTitle,setSaveTitle] = useState(''); const [saveUrl,setSaveUrl] = useState('');
   const [saveSpace,setSaveSpace] = useState('inbox'); const [spaceName,setSpaceName] = useState('');
   const [spaceColor,setSpaceColor] = useState('#7A68D8'); const [activeSpace,setActiveSpace] = useState('all');
@@ -63,11 +66,8 @@ export default function App() {
   const [online,setOnline] = useState(navigator.onLine);
   const [install,setInstall] = useState<InstallEvent|null>(null);
   const [installHelp,setInstallHelp] = useState(false);
-  const [knowledge,setKnowledge] = useState<UnifiedResult[]>([]);
-  const [searchData,setSearchData] = useState<UnifiedSearchResponse|null>(null);
-  const [searchError,setSearchError] = useState('');
   const [searchAttempt,setSearchAttempt] = useState(0);
-  const [knowledgeStatus,setKnowledgeStatus] = useState<'idle'|'loading'|'done'|'error'>('idle');
+  const {knowledge,searchData,searchError,knowledgeStatus} = useUnifiedSearch(screen,submitted,engine,tabs.activeId,searchAttempt);
   const [tool,setTool] = useState('calculator'); const [toolInput,setToolInput] = useState('');
   const [convertInput,setConvertInput] = useState('100 km to mi');
   const [colorInput,setColorInput] = useState('#3B5BFF'); const [textInput,setTextInput] = useState('');
@@ -93,47 +93,36 @@ export default function App() {
     return ()=>{window.removeEventListener('online',yes);window.removeEventListener('offline',no);window.removeEventListener('beforeinstallprompt',ready);};
   },[]);
   useEffect(()=>{
-    const change=()=>{const r=readRoute();setScreen(r.screen);setQuery(r.q);setSubmitted(r.q);if(r.engine)setEngine(r.engine);setFocused(false);};
+    const change=()=>{tabs.navigate(readRoute());setFocused(false);setSuggestionIndex(-1);};
     window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change);
-  },[]);
+  });
+  useEffect(()=>{history.replaceState(null,'',tabHash(tabs.active));setFocused(false);setSuggestionIndex(-1);},[tabs.activeId,screen,submitted,engine]);
   useEffect(()=>{
     const key=(e:globalThis.KeyboardEvent)=>{
       const typing=['INPUT','TEXTAREA','SELECT'].includes((e.target as HTMLElement).tagName);
+      if (e.key==='Escape') {setModal(null);setFocused(false);searchRef.current?.blur();return;}
+      if (modal || e.isComposing) return;
+      if(e.altKey&&e.shiftKey&&!e.ctrlKey&&!e.metaKey){
+        const key=e.key.toLowerCase();
+        if(key==='n'){e.preventDefault();newTab();return;}
+        if(key==='w'){e.preventDefault();closeTab(tabs.activeId);return;}
+        if(key==='t'){e.preventDefault();if(tabs.atLimit)setToast(`Maximum ${MAX_TABS} tabs. Close one first.`);else if(tabs.closed.length)tabs.reopen();return;}
+      }
       if ((e.key==='k'&&(e.ctrlKey||e.metaKey))||(!typing&&e.key==='/')) {e.preventDefault();go('home');setTimeout(()=>searchRef.current?.focus(),20);}
-      if (e.key==='Escape') {setModal(null);setFocused(false);searchRef.current?.blur();}
       if (!typing && e.key==='?') setModal('shortcuts');
     };
     window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);
   });
   useEffect(()=>{setFormError('');},[modal]);
 
-  // Unified server-side search; late responses never replace a newer query.
-  useEffect(()=>{
-    if(screen!=='results'||!submitted.trim())return;
-    const controller=new AbortController();let disposed=false;
-    setKnowledge([]);setSearchData(null);setSearchError('');setKnowledgeStatus('loading');
-    const timer=setTimeout(()=>controller.abort(),11000);
-    const clean=analyze(submitted,engine).cleanQuery;
-    fetch(`/api/search?q=${encodeURIComponent(clean)}`,{signal:controller.signal,credentials:'same-origin',cache:'no-store'}).then(async r=>{
-      const data=await r.json();
-      if(!r.ok)throw new Error(data.error||'Search is temporarily unavailable.');
-      return data as UnifiedSearchResponse;
-    }).then(data=>{
-      if(disposed||controller.signal.aborted)return;
-      setKnowledge(data.results);setSearchData(data);setKnowledgeStatus('done');
-    }).catch(error=>{
-      if(disposed)return;
-      setSearchError(controller.signal.aborted?'The search timed out. Please try again.':error instanceof SyntaxError?'The search service is not available on this preview.':error.message||'Could not reach the search service.');
-      setKnowledgeStatus('error');
-    }).finally(()=>clearTimeout(timer));
-    return()=>{disposed=true;clearTimeout(timer);controller.abort();};
-  },[screen,submitted,searchAttempt]);
-
   function go(next:Screen,q='',e=engine) {
-    setScreen(next);setFocused(false);setSuggestionIndex(-1);
-    const params=new URLSearchParams();if(q){params.set('q',q);}
-    location.hash=next==='home'?'home':`${next}${q?'?'+params:''}`;
+    setFocused(false);setSuggestionIndex(-1);setQuery(q);
+    const route={...tabs.active,screen:next,q,engine:e};
+    history.pushState(null,'',tabHash(route));
+    tabs.navigate({screen:next,q,engine:e});
   }
+  function newTab(){if(tabs.atLimit){setToast(`Maximum ${MAX_TABS} tabs. Close one first.`);return;}tabs.create();setModal(null);setTimeout(()=>searchRef.current?.focus(),30);}
+  function closeTab(id:string){tabs.close(id);setToast('Tab closed. Reopen it from Manage tabs.');}
   function open(url:string) {const safe=safeUrl(url);if(!safe){setToast('Only HTTP and HTTPS links are supported.');return;}if(settings.openInNewTab)window.open(safe,'_blank','noopener,noreferrer');else location.assign(safe);}
   function search(q=query,e=engine) {
     q=q.trim();if(!q)return;
@@ -142,7 +131,7 @@ export default function App() {
     if(a.bang&&a.cleanQuery){open(engineUrl(a.engine,a.cleanQuery));remember(q,a.engine);return;}
     if(q===submitted&&screen==='results')setSearchAttempt(n=>n+1);
     const chosen=e;
-    remember(q,chosen);setQuery(q);setSubmitted(q);setEngine(chosen);go('results',q,chosen);searchRef.current?.blur();
+    remember(q,chosen);go('results',q,chosen);searchRef.current?.blur();
   }
   function remember(q:string,e:EngineId){if(settings.showRecents)setRecents(rs=>[{id:uid(),query:q,engine:e,createdAt:Date.now()},...rs.filter(r=>r.query!==q)].slice(0,40));}
 
@@ -150,7 +139,7 @@ export default function App() {
   function addSaved(e:FormEvent){e.preventDefault();const url=safeUrl(saveUrl.trim())||normalizeUrl(saveUrl.trim());if(!url){setFormError('Enter a valid http:// or https:// address.');return;}if(saved.some(s=>s.url===url)){setFormError('This link is already in your Spaces.');return;}setSaved(s=>[{id:uid(),url,title:saveTitle.trim()||new URL(url).hostname,spaceId:saveSpace,createdAt:Date.now()},...s]);setModal(null);setToast('Saved to your space.');}
   function addSpace(e:FormEvent){e.preventDefault();if(!spaceName.trim())return;const id=uid();setSpaces(s=>[...s,{id,name:spaceName.trim(),color:spaceColor,createdAt:Date.now()}]);setActiveSpace(id);setSpaceName('');setModal(null);}
   async function copy(text:string){try{await navigator.clipboard.writeText(text);setToast('Copied to clipboard.');}catch{setToast('Clipboard unavailable. Select and copy the text manually.');}}
-  function exportData(){saveBlob(new Blob([JSON.stringify({settings,spaces,saved,recents,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}),'loxiro-backup.json');setToast('Backup saved.');}
+  function exportData(){saveBlob(new Blob([JSON.stringify({settings,spaces,saved,recents,tabs:{tabs:tabs.tabs,activeId:tabs.activeId,closed:tabs.closed},exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}),'loxiro-backup.json');setToast('Backup saved.');}
   function addDownload(e:FormEvent){e.preventDefault();if(!downloads.add(downloadUrl.trim(),downloadName)){setFormError('Enter a valid HTTP or HTTPS file URL.');return;}setModal(null);setDownloadUrl('');setDownloadName('');setToast('Added to the download queue.');}
   async function installApp(){if(install){await install.prompt();const result=await install.userChoice;if(result.outcome==='accepted')setToast('Loxiro is ready for your home screen.');setInstall(null);}else setInstallHelp(v=>!v);}
   const matches=query.trim()? [...new Set([...recents.map(r=>r.query),...SUGGESTIONS])].filter(s=>s.toLowerCase().includes(query.toLowerCase())&&s!==query).slice(0,4):[];
@@ -184,13 +173,14 @@ export default function App() {
       <div className="sidebar-label">YOUR EVERYDAY, REFINED</div>
       <nav className="desktop-nav" aria-label="Main navigation">{NAV.map(({id,label,icon:Icon})=><button key={id} className={(screen===id||(id==='home'&&screen==='results'))?'active':''} onClick={()=>go(id)}><Icon size={19} strokeWidth={1.8}/><span>{label}</span>{id==='downloads'&&activeDownloads>0?<b className="nav-count">{activeDownloads}</b>:id==='smart'?<span className="nav-new">NEW</span>:null}{id==='home'&&<kbd>⌘ K</kbd>}</button>)}</nav>
       <div className="sidebar-spaces"><div className="sidebar-section"><span>YOUR SPACES</span><button className="tiny-btn" aria-label="Create a space" onClick={()=>setModal('space')}><Plus size={16}/></button></div>{spaces.slice(0,5).map(s=><button key={s.id} onClick={()=>{setActiveSpace(s.id);go('spaces');}}><span className="space-dot" style={{background:s.color}}/>{s.name}<span className="quiet">{saved.filter(x=>x.spaceId===s.id).length}</span></button>)}<button className="create-space" onClick={()=>setModal('space')}><Plus size={15}/>New space</button></div>
-      <div className="sidebar-bottom"><div className="local-badge"><ShieldCheck size={15}/><span>Your space. Your data.</span><span className="status-dot"/></div><button className={`settings-nav ${screen==='settings'?'active':''}`} onClick={()=>go('settings')}><Settings2 size={18}/>Settings<span className="version">v0.5</span></button></div>
+      <div className="sidebar-bottom"><div className="local-badge"><ShieldCheck size={15}/><span>Your space. Your data.</span><span className="status-dot"/></div><button className={`settings-nav ${screen==='settings'?'active':''}`} onClick={()=>go('settings')}><Settings2 size={18}/>Settings<span className="version">v0.6</span></button></div>
     </aside>
 
     <div className="main-shell">
       <header className="topbar"><div className="breadcrumb"><span className="mini-logo">l<span>•</span></span><span>Loxiro</span><span className="slash">/</span><strong>{screen==='home'?'Your search starts here':screen==='results'?'Search results':screen==='smart'?'Smart tools':screen==='spaces'?'Spaces':screen==='downloads'?'Downloads':'Settings'}</strong></div><div className="topbar-actions"><span className="privacy-label"><ShieldCheck size={14}/>Local-first by design</span><button className="icon-btn" aria-label="Keyboard shortcuts" onClick={()=>setModal('shortcuts')}><Command size={17}/></button><button className="icon-btn" aria-label="Toggle light and dark theme" onClick={()=>setSettings(s=>({...s,theme:document.documentElement.dataset.theme==='dark'?'light':'dark'}))}>{document.documentElement.dataset.theme==='dark'?<Sun size={18}/>:<Moon size={18}/>}</button></div></header>
+      <TabBar workspace={tabs} onNew={newTab} onManage={()=>setModal('tabs')} onClose={closeTab}/>
       {!online&&<div className="offline-banner" role="status"><WifiOff size={15}/>You're offline. Smart tools and saved spaces still work.</div>}
-      <main className={`main-content ${screen==='home'?'home-content':''}`}>
+      <main id="workspace-page" className={`main-content ${screen==='home'?'home-content':''}`}>
         {screen==='home'&&<>
           <section className="hero">
             <div className="hero-badge"><span/>LESS NOISE. MORE DISCOVERY.<ArrowUpRight size={12}/></div>
@@ -220,13 +210,13 @@ export default function App() {
         {screen==='results'&&<div className="results-page">
           <div className="results-search"><button className="icon-btn" aria-label="Back to search" onClick={()=>go('home')}><ArrowLeft size={20}/></button>{searchBox(true)}</div>{unifiedBadge()}
           <div className="results-meta"><span>{knowledgeStatus==='loading'?'Gathering available sources…':`${knowledge.length} selected results${searchData?.websiteCount!==undefined?` · ${searchData.websiteCount} website links`:''}`}</span><span><Zap size={12}/>Combined. Deduplicated. Ranked.</span></div>
-          <div className="fusion-header"><span className="fusion-icon"><Layers size={23}/></span><div><span className="eyebrow">LOXIRO UNIFIED SEARCH</span><h2>A better view, not more tabs.</h2><p>Websites and supporting references, together. Available website matches lead the feed; duplicate links disappear and reference pages cannot crowd them out.</p></div></div>
+          <div className="fusion-header"><span className="fusion-icon"><Layers size={23}/></span><div><span className="eyebrow">LOXIRO UNIFIED SEARCH</span><h2>A better view of the web.</h2><p>Websites and supporting references, together. Available website matches lead the feed; duplicate links disappear and reference pages cannot crowd them out.</p></div></div>
           {searchData?.limitedWebCoverage&&<div className="coverage-notice" role="status"><AlertCircle size={17}/><div><p><strong>Limited coverage right now.</strong> {searchData.webSearchConfigured?'The connected web-search services returned no website matches. Available directory and specialist links still appear below.':'General web search is not connected. Available website links come from directories and specialist sources—not a complete web index.'}</p>{!searchData.webSearchConfigured&&<details className="web-setup-details"><summary>Enable broader website search</summary><p>Add one server-only key: <code>TAVILY_API_KEY</code>, <code>SERPAPI_API_KEY</code>, or <code>ZENSERP_API_KEY</code>, then redeploy. These services offer limited free plans that require your own account. Keep keys out of chat and client code.</p><a href="https://vercel.com/flux-cf70/loxiro-preview/settings/environment-variables" target="_blank" rel="noopener noreferrer">Open secure environment settings<ArrowUpRight size={13}/></a></details>}</div></div>}
 
           {(()=>{const a=analyze(submitted,engine);return a.value&&['calculation','conversion','color','time'].includes(a.intent)?<div className="answer-card"><div className="eyebrow"><Sparkles size={14}/>{a.headline} · ON DEVICE</div><p>{a.detail}</p><div className="answer-value">{a.intent==='color'&&<span className="color-inline" style={{background:a.value}}/>}{a.value}</div><button className="text-btn" onClick={()=>copy(a.value!)}><Copy size={14}/>Copy answer</button></div>:null;})()}
           <div className="results-grid"><section><div className="section-heading"><h2>Selected for your search</h2><span className="source-label">{searchData?`${searchData.providers.filter(p=>p.status==='ok'&&p.count>0).length} CONTRIBUTING SOURCES`:'UNIFIED FEED'}</span></div>
             {knowledgeStatus==='loading'?<div aria-live="polite" aria-label="Loading combined search results">{[1,2,3].map(n=><div key={n} className="result-skeleton"><span/><span/><span/></div>)}</div>:knowledge.length?<div className="knowledge-list">{knowledge.map(k=><article className="knowledge-result" key={k.url}><div className="result-source"><SiteIcon url={k.url}/><span>{k.domain}<small>{k.sources.join(' + ')}</small></span><button className="icon-btn" aria-label={`Save ${k.title}`} onClick={()=>prepareSave(k.url,k.title)}><Bookmark size={16}/></button></div><a href={k.url} target={settings.openInNewTab?'_blank':undefined} rel="noopener noreferrer">{k.title}<ArrowUpRight size={17}/></a><p>{k.extract||'Open the source to explore this result.'}</p><div className="rank-reason"><span className="result-kind">{(k.kind==='reference'||(!k.kind&&/(?:^|\.)(?:wikipedia\.org|wikidata\.org)$/.test(k.domain)))?'Reference':'Website'}</span><Sparkles size={11}/><span>{k.reason}</span></div></article>)}</div>:<div className="empty-state compact-empty"><Globe2 size={27}/><h3>{knowledgeStatus==='error'?'Search is unavailable':searchData?.providers.every(p=>p.status!=='ok')?'Sources couldn’t be reached':'No matches from the available sources'}</h3><p>{knowledgeStatus==='error'?searchError:searchData?.providers.every(p=>p.status!=='ok')?'No source returned a successful response. Try again in a moment.':'Try a broader query. Unconnected web providers cannot contribute results yet.'}</p><button className="secondary-btn" onClick={()=>setSearchAttempt(n=>n+1)}><RefreshCw size={15}/>Try again</button></div>}
-          </section><aside className="results-aside"><div className="section-heading"><h2>Behind your results</h2></div><p className="source-routing-note">Relevant sources run together automatically. Unrelated sources stay idle; no provider picking.</p><div className="provider-status-list">{knowledgeStatus==='loading'?<p>Checking sources in parallel…</p>:searchData?searchData.providers.filter(p=>p.status!=='skipped'&&p.access!=='paid-key').map(p=><div key={p.id}><span className={`provider-state-dot ${p.status==='ok'?'connected':''}`}/><span><strong>{p.name}</strong><small>{providerMessage(p)}</small></span></div>):<p>No source status available.</p>}</div><div className="privacy-note"><ShieldCheck size={20}/><strong>How “best” is picked.</strong><p>Provider ranking and cross-source agreement come first, with a small query-match boost and domain diversity. Ranking is a relevance heuristic, not a guarantee of accuracy.</p><p>Queries go only to sources selected for relevance. Results are cached in server memory for up to 60 seconds; no search history is written to disk. Providers and hosting may log requests. Website icons load from DuckDuckGo’s icon service using only the site hostname, without the search text or page URL.</p></div></aside></div>
+          </section><aside className="results-aside"><div className="section-heading"><h2>Behind your results</h2></div><p className="source-routing-note">Relevant sources run together automatically. Unrelated sources stay idle; no provider picking.</p><div className="provider-status-list">{knowledgeStatus==='loading'?<p>Checking sources in parallel…</p>:searchData?searchData.providers.filter(p=>p.status!=='skipped'&&p.access!=='paid-key').map(p=><div key={p.id}><span className={`provider-state-dot ${p.status==='ok'?'connected':''}`}/><span><strong>{p.name}</strong><small>{providerMessage(p)}</small></span></div>):<p>No source status available.</p>}</div><div className="privacy-note"><ShieldCheck size={20}/><strong>How “best” is picked.</strong><p>Provider ranking and cross-source agreement come first, with a small query-match boost and domain diversity. Ranking is a relevance heuristic, not a guarantee of accuracy.</p><p>Queries go only to sources selected for relevance. Results are cached in server memory for up to 60 seconds; the search server does not write history to disk. Open tabs and recent searches are saved locally on this device. Providers and hosting may log requests. Website icons load from DuckDuckGo’s icon service using only the site hostname, without the search text or page URL.</p></div></aside></div>
           {searchData&&<details className="mobile-source-details"><summary>Sources & ranking</summary><p>Sources are selected automatically for relevance; no search is sent to skipped sources.</p>{searchData.providers.map(p=><p key={p.id}><strong>{p.name}</strong> — {providerMessage(p)}</p>)}<p>Ranked by provider position, agreement, query match, and domain diversity. Rankings are not accuracy guarantees.</p></details>}
           <section className="related"><h2>Follow the thread</h2><div>{relatedSearches(submitted).map(q=><button key={q} onClick={()=>search(q)}><Search size={15}/>{q}<ArrowUpRight size={15}/></button>)}</div></section>
         </div>}
@@ -263,31 +253,32 @@ export default function App() {
         {screen==='settings'&&<>
           {pageHeading('MAKE YOURSELF AT HOME','A little more you.','Thoughtful defaults. Just enough control.')}
           <div className="settings-layout"><section className="settings-card"><h2><Palette size={17}/>Appearance</h2><div className="setting-row"><div><strong>Your kind of light</strong><p>A calm palette, day or night.</p></div><div className="segmented">{[{id:'light',icon:Sun},{id:'dark',icon:Moon},{id:'system',icon:Monitor}].map(t=><button key={t.id} aria-label={`${t.id} theme`} aria-pressed={settings.theme===t.id} className={settings.theme===t.id?'active':''} onClick={()=>setSettings(s=>({...s,theme:t.id as Settings['theme']}))}><t.icon size={17}/><span>{t.id}</span></button>)}</div></div><Toggle title="Reduce motion" description="Keep things still and simple." checked={settings.reduceMotion} onChange={v=>setSettings(s=>({...s,reduceMotion:v}))}/></section>
-          <section className="settings-card"><h2><Search size={17}/>Search & browsing</h2><Toggle title="Open links in a new tab" description="Keep Loxiro right where you left it." checked={settings.openInNewTab} onChange={v=>setSettings(s=>({...s,openInNewTab:v}))}/><Toggle title="Remember recent searches" description="Saved on this device. Never sent to us." checked={settings.showRecents} onChange={v=>setSettings(s=>({...s,showRecents:v}))}/></section>
+          <section className="settings-card"><h2><Search size={17}/>Search & browsing</h2><Toggle title="Open websites in a browser tab" description="External websites open in your browser, outside the Loxiro tab workspace." checked={settings.openInNewTab} onChange={v=>setSettings(s=>({...s,openInNewTab:v}))}/><Toggle title="Remember recent searches" description="Recent-search list only. Open and closed tab queries are saved locally too." checked={settings.showRecents} onChange={v=>setSettings(s=>({...s,showRecents:v}))}/></section>
           <section className="settings-card"><h2><Download size={17}/>Downloads</h2><div className="setting-row"><div><strong>Concurrent downloads</strong><p>Files at a time. Active files share a 32-request budget.</p></div><select aria-label="Concurrent downloads" value={settings.concurrency} onChange={e=>setSettings(s=>({...s,concurrency:Number(e.target.value)}))}>{[1,2,3,4].map(n=><option key={n} value={n}>{n} at a time</option>)}</select></div><div className="setting-row"><div><strong>Smart download parts</strong><p>Upper limit per file. Smaller files use fewer parts. Changes apply to new transfers.</p></div><select aria-label="Smart download parts" value={settings.downloadParts} onChange={e=>setSettings(s=>({...s,downloadParts:Number(e.target.value)}))}>{[8,16,32,1].map(n=><option key={n} value={n}>{n===1?'Single connection':`Up to ${n} parts`}</option>)}</select></div></section>
-          <section className="settings-card"><h2><ShieldCheck size={17}/>Your data</h2><div className="setting-row"><div><strong>Take it with you</strong><p>Export settings, spaces, and searches as JSON.</p></div><button className="secondary-btn small" onClick={exportData}><Download size={15}/>Export</button></div><div className="setting-row"><div><strong>A fresh start</strong><p>Clear local searches, saved links, settings, and transfer history.</p></div><button className="text-btn danger-text" onClick={()=>setModal('clear')}>Clear all data</button></div></section>
+          <section className="settings-card"><h2><ShieldCheck size={17}/>Your data</h2><div className="setting-row"><div><strong>Take it with you</strong><p>Export settings, spaces, searches, and tab sessions as JSON.</p></div><button className="secondary-btn small" onClick={exportData}><Download size={15}/>Export</button></div><div className="setting-row"><div><strong>A fresh start</strong><p>Clear local searches, saved links, tabs, settings, and transfer history.</p></div><button className="text-btn danger-text" onClick={()=>setModal('clear')}>Clear all data</button></div></section>
           <section className="install-card"><span className="logo-icon"><span/></span><div><h3>A place on your home screen.</h3><p>Keep Loxiro a tap away. Install as a lightweight web app.</p></div><button className="secondary-btn" onClick={installApp}><Smartphone size={16}/>{install?'Install Loxiro':'How to install'}</button>{installHelp&&<p className="install-help">On iPhone: Safari → Share → Add to Home Screen. On Android or desktop: use your browser menu → Install app / Add to Home Screen. Installation requires HTTPS and a supported browser.</p>}</section>
-          <div className="about-footer"><span className="wordmark">Loxiro<span className="wordmark-dot">.</span></span><p>A calmer corner of the internet.<br/>v0.5 · Search companion PWA, not a standalone rendering engine.</p><a href="/plan.html" target="_blank" rel="noopener noreferrer">The original plan<ArrowUpRight size={13}/></a></div></div>
+          <div className="about-footer"><span className="wordmark">Loxiro<span className="wordmark-dot">.</span></span><p>A calmer corner of the internet.<br/>v0.6 · Search companion PWA, not a standalone rendering engine.</p><a href="/plan.html" target="_blank" rel="noopener noreferrer">The original plan<ArrowUpRight size={13}/></a></div></div>
         </>}
       </main>
     </div>
 
     <nav className="mobile-nav" aria-label="Mobile navigation">{NAV.map(({id,label,icon:Icon})=><button key={id} className={screen===id||(id==='home'&&screen==='results')?'active':''} onClick={()=>go(id)}><Icon size={21}/><span>{label==='Smart tools'?'Smart':label}</span>{id==='downloads'&&activeDownloads>0&&<b>{activeDownloads}</b>}</button>)}<button className={screen==='settings'?'active':''} onClick={()=>go('settings')}><Settings2 size={21}/><span>Settings</span></button></nav>
     {toast&&<div className="toast" role="status"><CheckCircle2 size={17}/>{toast}<button aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={14}/></button></div>}
-    {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(null);}}><ModalShell title={modal==='save'?'A good find, kept.':modal==='space'?'Room for something new.':modal==='download'?'Let’s get that file.':modal==='clear'?'Start with a clean slate?':'A few little shortcuts.'} onClose={()=>setModal(null)}>
+    {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(null);}}><ModalShell title={modal==='save'?'A good find, kept.':modal==='space'?'Room for something new.':modal==='download'?'Let’s get that file.':modal==='clear'?'Start with a clean slate?':modal==='tabs'?'Room for every idea.':'A few little shortcuts.'} wide={modal==='tabs'} onClose={()=>setModal(null)}>
+      {modal==='tabs'&&<TabManager workspace={tabs} onNew={newTab} onSelect={id=>{tabs.activate(id);setModal(null);}} onClose={closeTab}/>}
       {modal==='save'&&<form onSubmit={addSaved}><p className="modal-description">Give that little corner of the web a home.</p><label className="form-label">Link<input autoFocus required type="text" placeholder="https://…" value={saveUrl} onChange={e=>setSaveUrl(e.target.value)}/></label><label className="form-label">Title <span>(optional)</span><input value={saveTitle} onChange={e=>setSaveTitle(e.target.value)} placeholder="Something worth coming back to" maxLength={180}/></label><label className="form-label">Space<select value={saveSpace} onChange={e=>setSaveSpace(e.target.value)}>{spaces.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>{formError&&<p className="form-error" role="alert">{formError}</p>}<button className="primary-btn modal-submit"><Bookmark size={16}/>Save link</button></form>}
       {modal==='space'&&<form onSubmit={addSpace}><p className="modal-description">A collection for your ideas, interests, or next big thing.</p><label className="form-label">Name<input autoFocus required placeholder="Weekend reads, creative fuel…" value={spaceName} onChange={e=>setSpaceName(e.target.value)} maxLength={35}/></label><label className="form-label">A little color</label><div className="color-picker">{['#7A68D8','#3B5BFF','#D88959','#428C76','#D76583','#589AB4'].map(c=><button type="button" key={c} aria-label={`Choose ${c}`} aria-pressed={spaceColor===c} style={{background:c}} onClick={()=>setSpaceColor(c)}>{spaceColor===c&&<Check size={17}/>}</button>)}</div><button className="primary-btn modal-submit"><Plus size={16}/>Create space</button></form>}
       {modal==='download'&&<form onSubmit={addDownload}><p className="modal-description">Paste a direct file URL. Loxiro checks for safe parallel downloading, combines the parts, and sends the complete file to your browser’s downloads.</p><label className="form-label">File URL<input autoFocus required type="url" placeholder="https://example.com/file.pdf" value={downloadUrl} onChange={e=>setDownloadUrl(e.target.value)}/></label><label className="form-label">Save as <span>(optional)</span><input placeholder="Leave blank to use the original filename" value={downloadName} onChange={e=>setDownloadName(e.target.value)}/></label><p className="tool-note">Source must allow CORS. Maximum 200 MB per file. Keep Loxiro open during transfers.</p>{formError&&<p className="form-error" role="alert">{formError}</p>}<button className="primary-btn modal-submit"><Download size={16}/>Add to queue</button></form>}
-      {modal==='shortcuts'&&<><p className="modal-description">Less reaching. More doing.</p><div className="shortcut-help">{[['Focus search','⌘ / Ctrl + K'],['Focus search','/'],['Browse suggestions','↑ ↓'],['Search / select','Enter'],['Close dialog','Esc'],['Show shortcuts','?']].map(([label,key],i)=><div key={i}><span>{label}</span><kbd>{key}</kbd></div>)}</div></>}
-      {modal==='clear'&&<><p className="modal-description">This removes your saved links, spaces, search history, download history, and settings from this device. Active transfers will stop. Downloaded files stay in your browser’s folder. This cannot be undone.</p><div className="modal-actions"><button className="secondary-btn" onClick={()=>setModal(null)}>Keep my data</button><button className="primary-btn danger-btn" onClick={()=>{downloads.cancelAll();for(const key of ['settings','recents','saved','spaces','downloads'])localStorage.removeItem(`loxiro:v2:${key}`);location.hash='home';location.reload();}}>Clear everything</button></div></>}
+      {modal==='shortcuts'&&<><p className="modal-description">Less reaching. More doing.</p><div className="shortcut-help">{[['Focus search','⌘ / Ctrl + K'],['Focus search','/'],['Browse suggestions','↑ ↓'],['Search / select','Enter'],['Close dialog','Esc'],['New Loxiro tab','Alt + Shift + N'],['Close Loxiro tab','Alt + Shift + W'],['Reopen closed tab','Alt + Shift + T'],['Switch tab (focus tab strip)','← / → / Home / End'],['Show shortcuts','?']].map(([label,key],i)=><div key={i}><span>{label}</span><kbd>{key}</kbd></div>)}</div></>}
+      {modal==='clear'&&<><p className="modal-description">This removes your saved links, spaces, search history, open and recently closed tabs, download history, and settings from this device. Active transfers will stop. Downloaded files stay in your browser’s folder. This cannot be undone.</p><div className="modal-actions"><button className="secondary-btn" onClick={()=>setModal(null)}>Keep my data</button><button className="primary-btn danger-btn" onClick={()=>{downloads.cancelAll();for(const key of ['settings','recents','saved','spaces','downloads','tabs'])localStorage.removeItem(`loxiro:v2:${key}`);history.replaceState(null,'','#home');location.reload();}}>Clear everything</button></div></>}
     </ModalShell></div>}
   </div>;
 }
 
 function Toggle({title,description,checked,onChange}:{title:string;description:string;checked:boolean;onChange:(value:boolean)=>void}) {return <div className="setting-row"><div><strong>{title}</strong><p>{description}</p></div><button className={`toggle ${checked?'on':''}`} role="switch" aria-checked={checked} aria-label={title} onClick={()=>onChange(!checked)}><span/></button></div>;}
 function ArrowDownIcon(){return <Download size={13}/>;}
-function ModalShell({title,onClose,children}:{title:string;onClose:()=>void;children:React.ReactNode}) {
+function ModalShell({title,onClose,children,wide=false}:{title:string;onClose:()=>void;children:React.ReactNode;wide?:boolean}) {
   const ref=useRef<HTMLDivElement>(null);
-  useEffect(()=>{const previous=document.activeElement as HTMLElement;const el=ref.current;const items=()=>el?.querySelectorAll<HTMLElement>('button:not(:disabled), input, select, textarea, a[href]');const first=el?.querySelector<HTMLElement>('[autofocus]')||items()?.[0];first?.focus();const trap=(e:globalThis.KeyboardEvent)=>{if(e.key!=='Tab')return;const nodes=items();if(!nodes?.length)return;const first=nodes[0],last=nodes[nodes.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}};document.addEventListener('keydown',trap);return()=>{document.removeEventListener('keydown',trap);previous?.focus();};},[]);
-  return <div className="modal" ref={ref} role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-heading"><span className="modal-brand"><Sparkles size={19}/></span><button className="icon-btn" aria-label="Close dialog" onClick={onClose}><X size={20}/></button></div><h2 id="modal-title">{title}</h2>{children}</div>;
+  useEffect(()=>{const previous=document.activeElement as HTMLElement;const el=ref.current;const items=()=>el?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href]');const first=el?.querySelector<HTMLElement>('input,textarea,select')||items()?.[0];first?.focus();const trap=(e:globalThis.KeyboardEvent)=>{if(e.key!=='Tab')return;const nodes=items();if(!nodes?.length)return;const first=nodes[0],last=nodes[nodes.length-1];if(!el?.contains(document.activeElement)){e.preventDefault();(e.shiftKey?last:first).focus();}else if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}};document.addEventListener('keydown',trap);return()=>{document.removeEventListener('keydown',trap);previous?.focus();};},[]);
+  return <div className={`modal ${wide?'wide-modal':''}`} ref={ref} role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-heading"><span className="modal-brand"><Sparkles size={19}/></span><button className="icon-btn" aria-label="Close dialog" onClick={onClose}><X size={20}/></button></div><h2 id="modal-title">{title}</h2>{children}</div>;
 }

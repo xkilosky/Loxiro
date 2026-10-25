@@ -1,6 +1,6 @@
 {
   "name": "loxiro",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "Loxiro — a fast, calm, smart search browser for the web",
@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:browser": "node scripts/browser-smoke.mjs",
     "dev:api": "node --env-file-if-exists=.env.local server/dev.mjs",
-    "test:downloads": "node scripts/download-smoke.mjs"
+    "test:downloads": "node scripts/download-smoke.mjs",
+    "test:tabs": "node scripts/tabs-smoke.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.1.1",
