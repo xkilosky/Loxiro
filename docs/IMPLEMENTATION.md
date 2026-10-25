@@ -64,3 +64,10 @@ User correction: searches must include actual websites, not only Wikipedia.
 - 118 tests pass, including 15 new website extraction, safety, current/preferred statement handling, enrichment/failure fallback, ordering, reference balance, and coverage regressions. TypeScript, build, staged module import and browser/axe/responsive/offline checks are required before deployment. Browser fixtures now include a direct website and verify its first position, badges and setup panel.
 
 - Live verification exposed a NASA/Nasavrky near-name ambiguity. Named-site enrichment now prefers exact entity labels/aliases; explicit “official website” requests do not generate direct sites from non-exact near matches. Routing suffixes are removed from Wikipedia requests and rank matching, and entity aliases remain visible in website titles. Three regressions cover that correction.
+
+# v0.4.2 — Website favicons replace result numbers
+
+- Replaced `01`/`02` result squares with lazy-loaded destination favicons in a fixed-size tile, in both themes. No ranking/order changes.
+- New `SiteIcon` component retains a local globe during loading and after image failure; changing sites resets image state. No repeated error retries or broken-image placeholder. Invalid/local/credentialed URLs never generate icon requests.
+- The DuckDuckGo icon URL contains only the parsed public hostname, never page paths/search text/keys; images use `no-referrer`. The provider still sees domain/network metadata. The UI privacy note and README disclose the external icon service. Nothing loads on Home.
+- 133 tests pass (15 new favicon/component cases), with typecheck and build. Browser fixtures exercise an actually decoded image, missing-icon fallback, no numbered squares, existing accessibility, responsive layout, and offline behavior. Those controlled images test rendering, not live icon-service uptime.
