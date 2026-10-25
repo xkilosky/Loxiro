@@ -56,6 +56,13 @@ describe('provider registry and normalization',()=>{
     const archive=new URL(fetcher.mock.calls[1][0]);expect(archive.searchParams.get('q')).toBe('(title:"Tolkien" OR creator:"Tolkien") AND mediatype:texts');
     await PROVIDERS.find(p=>p.id==='archive').run('Beatles music',{});expect(new URL(fetcher.mock.calls[2][0]).searchParams.get('q')).toContain('mediatype:audio');
   });
+  it('treats repository intent as routing instead of requiring the word GitHub in every repository',async()=>{
+    const fetcher=vi.fn(async()=>new Response('{}'));vi.stubGlobal('fetch',fetcher);
+    const p=PROVIDERS.find(p=>p.id==='github');await p.run('react github repository',{});
+    expect(new URL(fetcher.mock.calls[0][0]).searchParams.get('q')).toBe('react');
+    await p.run('repo:facebook/react hooks',{});expect(new URL(fetcher.mock.calls[1][0]).searchParams.get('q')).toBe('repo:facebook/react hooks');
+    expect(sourceWeight(p,'react github repository')).toBeGreaterThan(sourceWeight({id:'stackoverflow',kind:'code'},'react github repository'));
+  });
   it('does not treat upstream JSON API errors as successful empty searches',async()=>{
     vi.stubGlobal('fetch',vi.fn(async()=>new Response('{"error":"Quota exceeded"}')));
     await expect(PROVIDERS.find(p=>p.id==='serpapi').run('test',{SERPAPI_API_KEY:'hidden'})).rejects.toThrow();

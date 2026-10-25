@@ -46,7 +46,9 @@ User change: replace provider picking with one merged, ranked result feed.
 
 ## v0.4 validation
 
-- 102 unit/hook/backend tests pass, plus TypeScript checking, production build, staged serverless-module import, and `git diff --check`.
+- 103 unit/hook/backend tests pass, plus TypeScript checking, production build, staged serverless-module import, and `git diff --check`.
 - Chromium smoke passes unified feed/attribution, free-key/cached/cooldown statuses, save/persistence, Spaces, tools, real sample download, themes, results/Home/Settings axe checks, 360/390/768/1440 px overflow checks, runtime errors, service-worker/offline reload and offline calculation. API data is explicitly mocked in this browser suite.
 - Initial production checks returned real Wikipedia, Wikidata, Crossref, OpenAlex, Europe PMC, Stack Overflow, Internet Archive and Apple catalog data. DOI agreement between Europe PMC and OpenAlex produced a merged result with both source labels. DDG failed, Open Library timed out, and GitHub reported an upstream rate limit; these did not discard working sources. This is a spot check, not an uptime promise. Keyed web adapters remain unconfigured and cannot be live-verified without the user's credentials.
 - Live relevance review led to medium-specific Apple/Archive requests, lower catalog/community ranking priors, no HN fan-out for biomedical-only research, and DOI registrant-prefix diversity rather than treating every scholarly publisher as one domain. Three regressions cover those refinements.
+
+- Final live rechecks confirmed medium-scoped music results, a scholarly feed with merged DOI attribution, and successful GitHub repository retrieval after its earlier quota reset. Open Library still timed out and DDG remained unavailable. Repository searches now remove standalone routing words (e.g. “GitHub repository”) while preserving native search qualifiers such as `repo:owner/name`.

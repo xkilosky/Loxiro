@@ -59,7 +59,8 @@ export const PROVIDERS=[
   }},
   {id:'github',label:'GitHub repositories',kind:'code',access:'keyless',topics:['code'],minInterval:6500,lexical:true,async run(q,env){
     // Public repository search only. Code search requires authentication.
-    const d=await json(params('https://api.github.com/search/repositories',{q,per_page:8}),{env,headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
+    const repositoryQuery=q.replace(/(^|\s)(?:github|repositories|repository|repos?)(?=\s|$)/gi,' ').replace(/\s+/g,' ').trim()||q;
+    const d=await json(params('https://api.github.com/search/repositories',{q:repositoryQuery,per_page:8}),{env,headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
     return(d.items||[]).map(r=>({title:r.full_name,url:r.html_url,extract:describe(r.description,r.language,`${r.stargazers_count||0} stars`)}));
   }},
   {id:'itunes',label:'Apple iTunes',kind:'media',access:'keyless',topics:['media'],minInterval:3100,lexical:true,async run(q,env){

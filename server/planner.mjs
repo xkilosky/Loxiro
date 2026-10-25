@@ -25,6 +25,7 @@ export function sourceWeight(provider, query) {
   if(provider.id==='archive')return /\b(archive|public.domain|manuscript|vintage)\b/i.test(query)?1.05:.85;
   if(provider.kind==='community')return /\b(hacker.news|startup)\b/i.test(query)?1.05:.8;
   if(provider.kind==='research')return /\b(research|papers?|studies|study|clinical|doi|academic)\b/i.test(query)?1.1:.9;
+  if(provider.id==='github'&&/\b(github|repositories|repository|repos?)\b/i.test(query))return 1.2;
   if(provider.kind==='code')return 1.1;
   if(['books','media'].includes(provider.kind))return 1.05;
   return 1;
