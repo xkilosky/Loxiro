@@ -1,3 +1,4 @@
+import {websiteSubject} from './planner.mjs';
 /** Wikimedia reference pages should not crowd out actual website destinations. */
 export function isReferenceDomain(domain){return /(?:^|\.)(?:wikipedia\.org|wikidata\.org)$/.test(domain);}
 
@@ -20,7 +21,7 @@ export function canonicalUrl(raw) {
 /** Reciprocal rank fusion + small textual-relevance boost + domain diversity.
  * Consensus is not a truth guarantee. We expose reasons, not a fake confidence %. */
 export function rankResults(batches, query, limit = 10) {
-  const tokens = [...new Set(query.toLowerCase().match(/[\p{L}\p{N}]{2,}/gu) || [])];
+  const tokens = [...new Set(websiteSubject(query).toLowerCase().match(/[\p{L}\p{N}]{2,}/gu) || [])];
   const merged = new Map();
   for (const batch of batches) {
     const seen = new Set();

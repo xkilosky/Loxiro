@@ -30,3 +30,9 @@ export function sourceWeight(provider, query) {
   if(['books','media'].includes(provider.kind))return 1.05;
   return 1;
 }
+
+/** Remove explicit navigational suffixes, not questions about building websites. */
+export function websiteSubject(query){
+  const subject=query.replace(/\s+(?:(?:official\s+)?(?:websites?|sites?|homepages?))\s*$/i,'').trim();
+  return subject&&subject!==query&&!/^(?:what|how|why|where|when|best|top|the|a|an)(?:\s|$)/i.test(subject)?subject:query;
+}

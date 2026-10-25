@@ -1,26 +1,31 @@
 import {json,stripTags,describe,ProviderError} from './transport.mjs';
-import {queryTopics} from './planner.mjs';
+import {queryTopics,websiteSubject} from './planner.mjs';
 import {listedWebsites} from './websites.mjs';
 const enc=encodeURIComponent;
 const params=(base,values)=>{const u=new URL(base);for(const [k,v]of Object.entries(values))if(v!==undefined&&v!=='')u.searchParams.set(k,String(v));return u.href;};
 
 export const PROVIDERS=[
   {id:'wikipedia',label:'Wikipedia',kind:'knowledge',access:'keyless',priority:95,minInterval:250,async run(q,env){
-    const d=await json(params('https://en.wikipedia.org/w/api.php',{action:'query',generator:'search',gsrsearch:q,gsrlimit:8,prop:'extracts',exintro:1,explaintext:1,exsentences:2,format:'json'}),{env});
+    const d=await json(params('https://en.wikipedia.org/w/api.php',{action:'query',generator:'search',gsrsearch:websiteSubject(q),gsrlimit:8,prop:'extracts',exintro:1,explaintext:1,exsentences:2,format:'json'}),{env});
     if(d.error)throw new Error('Wikipedia unavailable');
     return Object.values(d.query?.pages||{}).sort((a,b)=>a.index-b.index).map(p=>({title:p.title,url:`https://en.wikipedia.org/wiki/${enc(p.title.replace(/ /g,'_'))}`,extract:p.extract||''}));
   }},
   {id:'wikidata',label:'Wikidata',kind:'knowledge',access:'keyless',priority:75,minInterval:500,async run(q,env){
-    const search=q.replace(/\s+(?:(?:official\s+)?(?:websites?|sites?|homepages?))\s*$/i,'').trim()||q;
+    const search=websiteSubject(q);
     const d=await json(params('https://www.wikidata.org/w/api.php',{action:'wbsearchentities',search,language:'en',uselang:'en',type:'item',limit:6,format:'json'}),{env});
     if(d.error)throw new Error('Wikidata unavailable');
-    const matches=(d.search||[]).filter(r=>/^Q\d+$/.test(r.id));
+    const candidates=(d.search||[]).filter(r=>/^Q\d+$/.test(r.id));
+    const normalized=search.trim().toLocaleLowerCase();
+    const exact=candidates.filter(r=>[r.label,r.match?.text,...(r.aliases||[])].some(value=>typeof value==='string'&&value.trim().toLocaleLowerCase()===normalized));
+    // Alias-aware exact matches prevent NASA from becoming a similarly named town.
+    const matches=exact.length?exact:candidates;
+    const websiteMatches=search!==q?exact:matches;
     const references=matches.map(r=>({title:r.label||r.id,url:`https://www.wikidata.org/wiki/${r.id}`,extract:r.description||'Structured knowledge record on Wikidata.'}));
-    if(!matches.length)return references;
+    if(!websiteMatches.length)return references;
     try{
-      const data=await json(params('https://www.wikidata.org/w/api.php',{action:'wbgetentities',ids:matches.map(r=>r.id).join('|'),props:'claims',format:'json'}),{env});
+      const data=await json(params('https://www.wikidata.org/w/api.php',{action:'wbgetentities',ids:websiteMatches.map(r=>r.id).join('|'),props:'claims',format:'json'}),{env});
       // Directory enrichment can fail independently: retain successful references.
-      return [...listedWebsites(matches,data.entities),...references];
+      return [...listedWebsites(websiteMatches,data.entities),...references];
     }catch{return references;}
 
   }},

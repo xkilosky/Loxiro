@@ -15,7 +15,7 @@ export function listedWebsites(matches,entities){
     const preferred=claims.filter(c=>c.rank==='preferred');
     const unique=new Set();
     return(preferred.length?preferred:claims).filter(c=>!unique.has(c.url.key)&&unique.add(c.url.key)).slice(0,2).map(c=>({
-      title:`${match.label||match.id} — Website`,url:c.url.url,
+      title:`${match.label||match.id}${match.match?.text&&match.match.text!==match.label?` (${match.match.text})`:''} — Website`,url:c.url.url,
       extract:[match.description,'Website address listed in Wikidata. This directory entry is not an independent verification of the site.'].filter(Boolean).join(' · '),
     }));
   });
