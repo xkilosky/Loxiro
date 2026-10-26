@@ -51,6 +51,7 @@ export default function App() {
   const initial = useRef(readRoute());
   const nativeAndroid = isAndroidBrowser();
   const [settings,setSettings] = useState<Settings>(()=>({...DEFAULTS,...load('settings',{})}));
+  const [resolvedTheme,setResolvedTheme]=useState<'dark'|'light'>(()=>document.documentElement.dataset.theme==='light'?'light':'dark');
   const tabs = useTabs(initial.current, settings.defaultEngine);
   const {screen, q:submitted, draft:query, engine} = tabs.active;
   const setQuery = tabs.setDraft;
@@ -86,7 +87,7 @@ export default function App() {
   useEffect(()=>{ if (!toast) return; const t=setTimeout(()=>setToast(''),3500); return ()=>clearTimeout(t); },[toast]);
   useEffect(()=>{
     const media=matchMedia('(prefers-color-scheme: dark)');
-    const apply=()=>{document.documentElement.dataset.theme=settings.theme==='system'?(media.matches?'dark':'light'):settings.theme;document.documentElement.dataset.motion=settings.reduceMotion?'reduced':'full';document.querySelectorAll('meta[name="theme-color"]').forEach(m=>m.setAttribute('content',document.documentElement.dataset.theme==='dark'?'#000000':'#ffffff'));};
+    const apply=()=>{const theme=settings.theme==='system'?(media.matches?'dark':'light'):settings.theme;document.documentElement.dataset.theme=theme;setResolvedTheme(theme);document.documentElement.dataset.motion=settings.reduceMotion?'reduced':'full';document.querySelectorAll('meta[name="theme-color"]').forEach(m=>m.setAttribute('content',document.documentElement.dataset.theme==='dark'?'#000000':'#ffffff'));};
     apply(); media.addEventListener('change',apply); return ()=>media.removeEventListener('change',apply);
   },[settings.theme,settings.reduceMotion]);
   useEffect(()=>{
@@ -180,7 +181,7 @@ export default function App() {
     </aside>
 
     <div className="main-shell">
-      <header className="topbar"><div className="breadcrumb"><span className="mini-logo">l<span>•</span></span><span>Loxiro</span><span className="slash">/</span><strong>{screen==='home'?'Your search starts here':screen==='results'?'Search results':screen==='smart'?'Smart tools':screen==='spaces'?'Spaces':screen==='downloads'?'Downloads':'Settings'}</strong></div><div className="topbar-actions"><span className="privacy-label"><ShieldCheck size={14}/>Local-first by design</span><button className="icon-btn" aria-label="Keyboard shortcuts" onClick={()=>setModal('shortcuts')}><Command size={17}/></button><button className="icon-btn" aria-label="Toggle light and dark theme" onClick={()=>setSettings(s=>({...s,theme:document.documentElement.dataset.theme==='dark'?'light':'dark'}))}>{document.documentElement.dataset.theme==='dark'?<Sun size={18}/>:<Moon size={18}/>}</button></div></header>
+      <header className="topbar"><div className="breadcrumb"><span className="mini-logo">l<span>•</span></span><span>Loxiro</span><span className="slash">/</span><strong>{screen==='home'?'Your search starts here':screen==='results'?'Search results':screen==='smart'?'Smart tools':screen==='spaces'?'Spaces':screen==='downloads'?'Downloads':'Settings'}</strong></div><div className="topbar-actions"><span className="privacy-label"><ShieldCheck size={14}/>Local-first by design</span><button className="icon-btn" aria-label="Keyboard shortcuts" onClick={()=>setModal('shortcuts')}><Command size={17}/></button><button className="icon-btn" aria-label="Toggle light and dark theme" onClick={()=>setSettings(s=>({...s,theme:resolvedTheme==='dark'?'light':'dark'}))}>{resolvedTheme==='dark'?<Sun size={18}/>:<Moon size={18}/>}</button></div></header>
       {!nativeAndroid&&<TabBar workspace={tabs} onNew={newTab} onManage={()=>setModal('tabs')} onClose={closeTab}/>}
       {!online&&<div className="offline-banner" role="status"><WifiOff size={15}/>You're offline. Smart tools and saved spaces still work.</div>}
       <main id="workspace-page" className={`main-content ${screen==='home'?'home-content':''}`}>

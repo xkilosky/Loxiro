@@ -13,6 +13,7 @@ try{
     assert.equal(await page.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor),bg);
     assert.equal(await page.locator('.search-submit').evaluate(e=>getComputedStyle(e).backgroundColor),accent);
     assert.equal(await page.locator('meta[name="theme-color"]').getAttribute('content'),theme==='dark'?'#000000':'#ffffff');
+    assert.equal(await page.getByRole('button',{name:'Toggle light and dark theme'}).locator(theme==='dark'?'svg.lucide-sun':'svg.lucide-moon').count(),1);
   }
   await palette('dark','rgb(0, 0, 0)','rgb(255, 255, 255)');
   // Primary screens: brand mark/buttons must not disappear white-on-white.
