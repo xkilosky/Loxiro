@@ -61,14 +61,14 @@ public class EverydayBrowsingTest {
             OutputStream video=s.getOutputStream();video.write(("HTTP/1.1 200 OK\r\nContent-Type: video/mp4\r\nContent-Length: "+movie.length+"\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));video.write(movie);video.flush();return;
         }
         String html="<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><title>Features</title><style>body{margin:12px}input,button{display:block;min-height:48px;margin:8px 0}video{width:200px;height:90px;background:#222}</style><p>needle one. needle two. needle three.</p>"+
-            "<input id='document' type='file' accept='.txt' onchange=\"let r=new FileReader();r.onload=()=>document.title='upload:'+r.result;r.readAsText(this.files[0])\">"+
-            "<input id='photo' type='file' accept='image/*' onchange=\"let r=new FileReader();r.onload=()=>document.title='photo:'+this.files.length+':'+this.files[0].type;r.readAsDataURL(this.files[0])\">"+
+            "<input id='upload-file' type='file' accept='.txt' onchange=\"let r=new FileReader();r.onload=()=>window.document.title='upload:'+r.result;r.onerror=()=>window.document.title='uploaderror:'+r.error.name;r.readAsText(this.files[0])\">"+
+            "<input id='photo' type='file' accept='image/*' onchange=\"let r=new FileReader();r.onload=()=>window.document.title='photo:'+this.files.length+':'+this.files[0].type;r.readAsDataURL(this.files[0])\">"+
             "<video id='movie' muted playsinline loop src='/movie.mp4' onplaying=\"document.title='Playing'\"></video><button id='fullscreen' onclick=\"movie.play();movie.requestFullscreen()\">Full screen video</button>";
         byte[] body=html.getBytes(StandardCharsets.UTF_8);OutputStream out=s.getOutputStream();out.write(("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: "+body.length+"\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));out.write(body);out.flush();
     }catch(Exception ignored){}}
     private void awaitTitle(String expected){
         long end=SystemClock.uptimeMillis()+15000;AtomicBoolean done=new AtomicBoolean();
-        while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->done.set(expected.equals(a.activeTitle())&&a.activePageReady()));if(done.get()){frame();return;}SystemClock.sleep(50);}fail("Title not loaded: "+expected);
+        while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->done.set(expected.equals(a.activeTitle())&&a.activePageReady()));if(done.get()){frame();return;}SystemClock.sleep(50);}scenario.onActivity(a->fail("Title not loaded: "+expected+"; actual="+a.activeTitle()+"; picker="+a.uploadStatus()));
     }
     private void frame(){AtomicBoolean ready=new AtomicBoolean();scenario.onActivity(a->a.afterVisibleFrame(()->ready.set(true)));long end=SystemClock.uptimeMillis()+5000;while(!ready.get()&&SystemClock.uptimeMillis()<end)SystemClock.sleep(25);assertTrue(ready.get());}
     private WebView page(BrowserActivity a){return (WebView)((FrameLayout)a.findViewById(R.id.web_content)).getChildAt(0);}
@@ -94,7 +94,7 @@ public class EverydayBrowsingTest {
         Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();Uri document=Uri.parse("content://app.loxiro.browser.test.files/hello.txt");
         c.getContentResolver().call(document,"grant",c.getPackageName(),null);
         intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWith(new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(document).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)));
-        touchElement("document");awaitTitle("upload:Selected document fixture");
+        touchElement("upload-file");intended(hasAction(Intent.ACTION_OPEN_DOCUMENT));scenario.onActivity(a->assertEquals("accepted:1",a.uploadStatus()));awaitTitle("upload:Selected document fixture");
         intended(hasAction(Intent.ACTION_OPEN_DOCUMENT));
         Intents.release();Intents.init();Uri photo=Uri.parse("content://app.loxiro.browser.test.files/photo.png");
         intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWith(new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(photo).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)));
@@ -102,8 +102,8 @@ public class EverydayBrowsingTest {
         scenario.onActivity(a->{assertFalse(page(a).getSettings().getAllowFileAccess());assertFalse(page(a).getSettings().getAllowContentAccess());});
     }
     @Test public void pickerCancelAndUnsafeUriDoNotExposeAFile() throws Exception {
-        intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWith(new Instrumentation.ActivityResult(Activity.RESULT_CANCELED,null));touchElement("document");awaitTitle("Features");
-        Intents.release();Intents.init();intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWith(new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(Uri.parse("file:///data/data/app.loxiro.browser/private"))));touchElement("document");awaitTitle("Features");
+        intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWith(new Instrumentation.ActivityResult(Activity.RESULT_CANCELED,null));touchElement("upload-file");awaitTitle("Features");
+        Intents.release();Intents.init();intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWith(new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(Uri.parse("file:///data/data/app.loxiro.browser/private"))));touchElement("upload-file");awaitTitle("Features");
     }
     @Test public void fullScreenVideoRestoresChromeOnExitAndBack() throws Exception {
         touchElement("fullscreen");long end=SystemClock.uptimeMillis()+7000;AtomicBoolean active=new AtomicBoolean();while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->active.set(a.isPageFullscreen()));if(active.get())break;SystemClock.sleep(50);}assertTrue("WebView must enter a real custom full-screen view",active.get());awaitTitle("Playing");
@@ -123,11 +123,13 @@ public class EverydayBrowsingTest {
     }
     @Test public void pendingUploadCannotCrossNavigationOrOverlapPickers(){
         class Host extends Activity{int launches;@Override public void startActivityForResult(Intent i,int r){launches++;assertEquals(Intent.ACTION_OPEN_DOCUMENT,i.getAction());assertTrue(i.hasCategory(Intent.CATEGORY_OPENABLE));assertEquals("text/plain",i.getType());}}
+        scenario.onActivity(activity->{
         Host host=new Host();UploadPicker picker=new UploadPicker(host,false);java.util.concurrent.atomic.AtomicInteger deliveries=new java.util.concurrent.atomic.AtomicInteger();
         android.webkit.WebChromeClient.FileChooserParams params=new android.webkit.WebChromeClient.FileChooserParams(){public int getMode(){return MODE_OPEN;}public String[] getAcceptTypes(){return new String[]{"text/plain"};}public boolean isCaptureEnabled(){return false;}public CharSequence getTitle(){return "Fixture";}public String getFilenameHint(){return null;}public Intent createIntent(){return new Intent(Intent.ACTION_OPEN_DOCUMENT);}};
         picker.show("a",value->{assertNull(value);deliveries.incrementAndGet();},params);assertTrue(picker.pending());picker.cancelOwner("a");assertEquals(1,deliveries.get());
         picker.show("b",value->{assertNull(value);deliveries.incrementAndGet();},params);assertEquals(1,host.launches);assertEquals(2,deliveries.get());
         picker.result(Activity.RESULT_OK,new Intent().setData(Uri.parse("file:///private")));assertFalse(picker.pending());assertEquals(2,deliveries.get());
+        });
     }
     @After public void cleanup() throws Exception {if(scenario!=null)scenario.close();Intents.release();if(server!=null)server.close();if(worker!=null)worker.shutdownNow();}
 }

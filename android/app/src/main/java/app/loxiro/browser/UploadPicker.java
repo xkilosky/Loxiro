@@ -18,6 +18,7 @@ final class UploadPicker {
     private ValueCallback<Uri[]> callback;
     private String owner;
     private boolean inFlight,multiple;
+    String status="idle";
     UploadPicker(Activity activity,boolean pending){this.activity=activity;inFlight=pending;}
     boolean pending(){return inFlight;}
     boolean show(String pageId,ValueCallback<Uri[]> result,WebChromeClient.FileChooserParams params){
@@ -33,7 +34,7 @@ final class UploadPicker {
         }
         if(types.isEmpty())types.add("*/*");
         pick.setType(types.size()==1?types.iterator().next():"*/*");if(types.size()>1)pick.putExtra(Intent.EXTRA_MIME_TYPES,types.toArray(new String[0]));pick.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,multiple);
-        callback=result;owner=pageId;inFlight=true;
+        callback=result;owner=pageId;inFlight=true;status="pending";
         try{activity.startActivityForResult(pick,REQUEST);}catch(RuntimeException error){inFlight=false;cancel();}
         return true;
     }
@@ -46,6 +47,7 @@ final class UploadPicker {
             if(data.getClipData()!=null){for(int i=0;i<Math.min(32,data.getClipData().getItemCount());i++)add(selected,data.getClipData().getItemAt(i).getUri());}
             else add(selected,data.getData());
         }
+        if(!selected.isEmpty())status="accepted:"+selected.size();else if(code!=Activity.RESULT_OK)status="cancelled";
         previous.onReceiveValue(selected.isEmpty()?null:selected.toArray(new Uri[0]));
     }
     private void add(ArrayList<Uri> selected,Uri uri){
@@ -53,8 +55,8 @@ final class UploadPicker {
         // Only the document provider's explicitly granted content, never app-private or file URLs.
         try {
         android.content.pm.ProviderInfo provider=activity.getPackageManager().resolveContentProvider(uri.getAuthority(),0);
-        if(provider!=null&&provider.applicationInfo.uid==Process.myUid())return;
-        if(activity.checkUriPermission(uri,Process.myPid(),Process.myUid(),Intent.FLAG_GRANT_READ_URI_PERMISSION)!=PackageManager.PERMISSION_GRANTED)return;
+        if(provider!=null&&provider.applicationInfo.uid==Process.myUid()){status="rejected:app-owned";return;}
+        if(activity.checkUriPermission(uri,Process.myPid(),Process.myUid(),Intent.FLAG_GRANT_READ_URI_PERMISSION)!=PackageManager.PERMISSION_GRANTED){status="rejected:ungranted";return;}
         selected.add(uri);
         }catch(SecurityException|IllegalArgumentException ignored){ /* Unreadable provider result is not a selected file. */ }
     }

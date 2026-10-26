@@ -109,7 +109,7 @@ public final class BrowserActivity extends Activity {
         select(session.activeId);
         if(saved==null)handleExternalIntent(getIntent());
     }
-    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);handleExternalIntent(intent);}
+    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);handleExternalIntent(intent);}
     private void handleExternalIntent(Intent intent){
         String url=null;boolean incoming=false;
         try{
@@ -530,6 +530,7 @@ public final class BrowserActivity extends Activity {
     // Package-private instrumentation observations; not exposed to website JavaScript.
     boolean activePageReady(){Page page=activePage();return page!=null&&!page.crashed&&!page.loading&&page.view.getWidth()>0&&page.view.getHeight()>0;}
     void afterVisibleFrame(Runnable callback){if(overview!=null||settingsDialog!=null||fullscreenCallback!=null){callback.run();return;}Page page=activePage();if(page!=null&&!page.crashed)page.view.postVisualStateCallback(0,new WebView.VisualStateCallback(){@Override public void onComplete(long id){callback.run();}});}
+    String uploadStatus(){return uploads.status;}
     boolean isPageFullscreen(){return fullscreenCallback!=null;}
     int previewCount(){return previews.size();}
     BrowserSettings nativeSettings(){return preferences;}
