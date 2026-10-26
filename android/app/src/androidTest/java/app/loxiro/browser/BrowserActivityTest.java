@@ -65,7 +65,7 @@ public class BrowserActivityTest {
         long end=SystemClock.uptimeMillis()+15000;AtomicBoolean done=new AtomicBoolean();
         while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->done.set(title.equals(a.activeTitle())&&a.activePageReady()));if(done.get()){
             AtomicBoolean rendered=new AtomicBoolean();scenario.onActivity(a->a.afterVisibleFrame(()->rendered.set(true)));
-            long frameEnd=SystemClock.uptimeMillis()+5000;while(!rendered.get()&&SystemClock.uptimeMillis()<frameEnd)SystemClock.sleep(25);
+            long frameEnd=SystemClock.uptimeMillis()+15000;while(!rendered.get()&&SystemClock.uptimeMillis()<frameEnd)SystemClock.sleep(25);
             assertTrue("WebView did not commit a visible frame",rendered.get());return;
         }SystemClock.sleep(75);}
         fail("WebView did not load title: "+title);

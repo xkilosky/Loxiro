@@ -528,8 +528,8 @@ public final class BrowserActivity extends Activity {
     @Override public void onTrimMemory(int level){super.onTrimMemory(level);if(level>=TRIM_MEMORY_RUNNING_LOW){previews.clear();for(String id:new ArrayList<>(pages.keySet()))if(!id.equals(session.activeId))destroyPage(id);refreshOverview();}}
     @Override protected void onDestroy(){destroying=true;leavePageTools();dismissOverview();if(settingsDialog!=null)settingsDialog.dismiss();previews.clear();if(store!=null&&!clearInProgress)store.save(session);for(String id:new ArrayList<>(pages.keySet()))destroyPage(id);super.onDestroy();}
     // Package-private instrumentation observations; not exposed to website JavaScript.
-    boolean activePageReady(){Page page=activePage();return page!=null&&!page.crashed&&!page.loading&&page.view.getWidth()>0&&page.view.getHeight()>0;}
-    void afterVisibleFrame(Runnable callback){if(overview!=null||settingsDialog!=null||fullscreenCallback!=null){callback.run();return;}Page page=activePage();if(page!=null&&!page.crashed)page.view.postVisualStateCallback(0,new WebView.VisualStateCallback(){@Override public void onComplete(long id){callback.run();}});}
+    boolean activePageReady(){Page page=activePage();return page!=null&&!page.crashed&&!page.loading&&page.view.getWidth()>0&&page.view.getHeight()>0&&(overview!=null||settingsDialog!=null||fullscreenCallback!=null||(page.view.isAttachedToWindow()&&page.view.getWindowVisibility()==View.VISIBLE&&getWindow().getDecorView().hasWindowFocus()));}
+    void afterVisibleFrame(Runnable callback){if(overview!=null||settingsDialog!=null||fullscreenCallback!=null){callback.run();return;}Page page=activePage();if(page!=null&&!page.crashed){page.view.postOnAnimation(()->{if(!alive(page))return;page.view.postVisualStateCallback(0,new WebView.VisualStateCallback(){@Override public void onComplete(long id){callback.run();}});page.view.invalidate();});}}
     String uploadStatus(){return uploads.status;}
     boolean isPageFullscreen(){return fullscreenCallback!=null;}
     int previewCount(){return previews.size();}

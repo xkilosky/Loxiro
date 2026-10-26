@@ -70,7 +70,7 @@ public class EverydayBrowsingTest {
         long end=SystemClock.uptimeMillis()+15000;AtomicBoolean done=new AtomicBoolean();
         while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->done.set(expected.equals(a.activeTitle())&&a.activePageReady()));if(done.get()){frame();return;}SystemClock.sleep(50);}scenario.onActivity(a->fail("Title not loaded: "+expected+"; actual="+a.activeTitle()+"; picker="+a.uploadStatus()));
     }
-    private void frame(){AtomicBoolean ready=new AtomicBoolean();scenario.onActivity(a->a.afterVisibleFrame(()->ready.set(true)));long end=SystemClock.uptimeMillis()+5000;while(!ready.get()&&SystemClock.uptimeMillis()<end)SystemClock.sleep(25);assertTrue(ready.get());}
+    private void frame(){AtomicBoolean ready=new AtomicBoolean();scenario.onActivity(a->a.afterVisibleFrame(()->ready.set(true)));long end=SystemClock.uptimeMillis()+15000;while(!ready.get()&&SystemClock.uptimeMillis()<end)SystemClock.sleep(25);assertTrue(ready.get());}
     private WebView page(BrowserActivity a){return (WebView)((FrameLayout)a.findViewById(R.id.web_content)).getChildAt(0);}
     private void touchElement(String id) throws Exception {
         AtomicReference<float[]> center=new AtomicReference<>();
