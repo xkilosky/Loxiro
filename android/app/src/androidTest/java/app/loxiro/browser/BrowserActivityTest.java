@@ -64,7 +64,7 @@ public class BrowserActivityTest {
             android.content.res.TypedArray attrs=activity.obtainStyledAttributes(new int[]{android.R.attr.windowLightStatusBar,android.R.attr.windowLightNavigationBar});
             assertFalse(attrs.getBoolean(0,true));assertFalse(attrs.getBoolean(1,true));attrs.recycle();
         });
-        onView(withContentDescription("Manage website tabs")).perform(click());
+        onView(withId(R.id.tab_count)).perform(click());
         onView(withId(R.id.new_tab)).check((view,error)->{
             if(error!=null)throw error;
             assertEquals(android.graphics.Color.BLACK,((android.widget.Button)view).getCurrentTextColor());
@@ -160,12 +160,25 @@ public class BrowserActivityTest {
         onView(withContentDescription("Restore First fixture")).perform(click());awaitTitle("First fixture");scenario.onActivity(a->assertEquals(2,a.nativeTabCount()));assertCompactChrome();
         onView(withId(R.id.tab_count)).perform(click());onView(withContentDescription("Return to website")).perform(click());assertCompactChrome();
         scenario.onActivity(a->a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();awaitTitle("First fixture");
+        awaitOrientation(android.content.res.Configuration.ORIENTATION_LANDSCAPE);awaitTitle("First fixture");
         onView(withId(R.id.tab_count)).perform(click());onView(withId(R.id.tab_overview)).check(matches(isDisplayed()));
         onView(withId(R.id.new_tab)).check(matches(isDisplayed()));saveScreenshot("tabs-landscape.png");
         onView(withContentDescription("Return to website")).perform(click());assertCompactChrome();
         scenario.onActivity(a->a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();awaitTitle("First fixture");
+        awaitOrientation(android.content.res.Configuration.ORIENTATION_PORTRAIT);awaitTitle("First fixture");
+    }
+    private void awaitOrientation(int orientation) {
+        long end=SystemClock.uptimeMillis()+15000;AtomicBoolean settled=new AtomicBoolean();
+        while(SystemClock.uptimeMillis()<end){
+            scenario.onActivity(a->{
+                View decor=a.getWindow().getDecorView();
+                boolean landscape=decor.getWidth()>decor.getHeight();
+                settled.set(a.getResources().getConfiguration().orientation==orientation&&decor.getWidth()>0&&decor.getHeight()>0&&landscape==(orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE)&&a.activePageReady());
+            });
+            if(settled.get()){InstrumentationRegistry.getInstrumentation().waitForIdleSync();return;}
+            SystemClock.sleep(75);
+        }
+        fail("Activity did not finish requested rotation");
     }
     private void openBrowserSettings(){
         onView(withContentDescription("Browser options")).perform(click());onView(withText("Browser settings")).perform(click());
