@@ -12,6 +12,7 @@
     <item name="browser_settings" type="id" />
     <item name="website_text_zoom" type="id" />
     <item name="website_text_zoom_value" type="id" />
+    <item name="browser_error" type="id" />
     <item name="fullscreen_tabs" type="id" />
     <item name="fullscreen_content" type="id" />
     <item name="find_bar" type="id" />

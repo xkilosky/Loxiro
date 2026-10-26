@@ -171,7 +171,7 @@ public final class BrowserActivity extends Activity {
         root.addView(navigation,new LinearLayout.LayoutParams(-1,dp(56)));
         buildFindBar(root);
         progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setProgressTintList(ColorStateList.valueOf(ACCENT));progress.setMax(100);root.addView(progress,new LinearLayout.LayoutParams(-1,dp(2)));
-        errorBanner=new TextView(this);errorBanner.setTextSize(12);errorBanner.setTextColor(BrowserPalette.ERROR);errorBanner.setPadding(dp(12),dp(8),dp(12),dp(8));errorBanner.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);root.addView(errorBanner);
+        errorBanner=new TextView(this);errorBanner.setId(R.id.browser_error);errorBanner.setTextSize(12);errorBanner.setTextColor(BrowserPalette.ERROR);errorBanner.setPadding(dp(12),dp(8),dp(12),dp(8));errorBanner.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);root.addView(errorBanner);
         content=new FrameLayout(this);content.setId(R.id.web_content);root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
         FrameLayout stage=new FrameLayout(this);stage.addView(root,new FrameLayout.LayoutParams(-1,-1));
         fullscreenHost=new FrameLayout(this);fullscreenHost.setId(R.id.fullscreen_content);fullscreenHost.setBackgroundColor(Color.BLACK);fullscreenHost.setVisibility(View.GONE);stage.addView(fullscreenHost,new FrameLayout.LayoutParams(-1,-1));
