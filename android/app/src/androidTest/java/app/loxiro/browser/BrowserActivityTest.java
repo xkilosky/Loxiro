@@ -256,12 +256,13 @@ public class BrowserActivityTest {
     }
     @Test public void failedPageLeavesFullscreenForVisibleRecoveryControls(){
         enterWebsiteFullscreen();scenario.onActivity(a->((WebView)((android.widget.FrameLayout)a.findViewById(R.id.web_content)).getChildAt(0)).loadUrl(origin+"/error"));awaitTitle("Page error");
-        // System WebView can report a retry/connection error after an HTTP 503. Assert recovery,
-        // not the precise callback message or callback ordering of one WebView version.
+        // Error callbacks may precede onPageStarted; the recovery banner must survive either order.
         long end=SystemClock.uptimeMillis()+5000;AtomicBoolean recovery=new AtomicBoolean();
         while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->{android.widget.TextView error=a.findViewById(R.id.browser_error);recovery.set(!a.isWebsiteFullscreen()&&error.isShown()&&error.length()>0);});if(recovery.get())break;SystemClock.sleep(50);}
         scenario.onActivity(a->{android.widget.TextView error=a.findViewById(R.id.browser_error);assertTrue("Expected visible recovery error; fullscreen="+a.isWebsiteFullscreen()+", error="+error.getText()+", visibility="+error.getVisibility(),recovery.get());});
         onView(withId(R.id.address)).check(matches(isDisplayed()));onView(withId(R.id.browser_error)).check(matches(isDisplayed()));
+        onView(withText("Website returned HTTP 503.")).check(matches(isDisplayed()));
+        onView(withId(R.id.address)).perform(replaceText(origin+"/one"),pressImeActionButton());awaitTitle("First fixture");scenario.onActivity(a->assertEquals(View.GONE,a.findViewById(R.id.browser_error).getVisibility()));
     }
     @Test public void newTabFromFullscreenRestoresTheAddressBar(){
         enterWebsiteFullscreen();onView(withId(R.id.fullscreen_tabs)).perform(click());onView(withId(R.id.new_tab)).perform(click());awaitTitle("First fixture");

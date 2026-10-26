@@ -93,7 +93,7 @@ public final class BrowserActivity extends Activity {
         WebView view;
         boolean loading, crashed;
         int progress;
-        String error="";
+        String error="",pendingHttpErrorUrl="",pendingHttpError="";
         Page(String id) { this.id=id; }
     }
     @Override public void onCreate(Bundle saved) {
@@ -198,7 +198,7 @@ public final class BrowserActivity extends Activity {
         leavePageTools();
         address.clearFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(address.getWindowToken(),0);
         Page p=activePage();if(p==null || p.crashed){destroyPage(tab.id);p=createPage(tab);attach(p);}
-        previews.remove(tab.id);tab.url=url;tab.title="";p.error="";p.view.loadUrl(url);store.save(session);renderChrome();
+        previews.remove(tab.id);tab.url=url;tab.title="";p.error="";p.pendingHttpErrorUrl="";p.pendingHttpError="";p.view.loadUrl(url);store.save(session);renderChrome();
     }
     private TabSession.Tab addTab(String url,boolean load) {
         if(clearInProgress)return null;
@@ -255,20 +255,28 @@ public final class BrowserActivity extends Activity {
                 TabSession.Tab t=session.find(page.id);
                 if(websiteFullscreen&&page.id.equals(session.activeId)&&!UrlPolicy.isHomeSurface(url)&&!fullscreenOrigin(t.url).equals(fullscreenOrigin(url)))announceWebsiteFullscreen(url);
                 if(UrlPolicy.isWebUrl(url)||"about:blank".equals(url)){t.url=url;t.title="";}
-                previews.remove(page.id);page.loading=true;page.error="";page.progress=0;changed(page);
+                // Some WebView versions deliver HTTP errors before onPageStarted. Consume
+                // that same-navigation error instead of silently erasing the recovery banner.
+                page.error=url.equals(page.pendingHttpErrorUrl)?page.pendingHttpError:"";
+                page.pendingHttpErrorUrl="";page.pendingHttpError="";
+                previews.remove(page.id);page.loading=true;page.progress=0;changed(page);
             }
             @Override public void doUpdateVisitedHistory(WebView web,String url,boolean reload) {
                 if(!alive(page))return;
                 if(UrlPolicy.isWebUrl(url)||"about:blank".equals(url))session.find(page.id).url=url;changed(page);
             }
             @Override public void onPageFinished(WebView web,String url) {
-                if(!alive(page))return;page.loading=false;page.progress=100;changed(page);
+                if(!alive(page))return;page.loading=false;page.pendingHttpErrorUrl="";page.pendingHttpError="";page.progress=100;changed(page);
             }
             @Override public void onReceivedError(WebView web,WebResourceRequest request,WebResourceError error) {
                 if(alive(page)&&request.isForMainFrame()){page.error="Could not load this page. Check your connection or use Reload.";page.loading=false;changed(page);}
             }
             @Override public void onReceivedHttpError(WebView web,WebResourceRequest request,WebResourceResponse error) {
-                if(alive(page)&&request.isForMainFrame()){page.error="Website returned HTTP "+error.getStatusCode()+".";changed(page);}
+                if(alive(page)&&request.isForMainFrame()){
+                    page.error="Website returned HTTP "+error.getStatusCode()+".";
+                    if(!page.loading){page.pendingHttpErrorUrl=request.getUrl().toString();page.pendingHttpError=page.error;}
+                    changed(page);
+                }
             }
             @Override public void onReceivedSslError(WebView web,SslErrorHandler handler,SslError error) {
                 handler.cancel();if(alive(page)){page.error="Secure connection failed. Certificate errors are never bypassed.";page.loading=false;changed(page);}
@@ -331,7 +339,7 @@ public final class BrowserActivity extends Activity {
     }
     private void reloadActive() {
         TabSession.Tab tab=session.active();if(tab==null)return;
-        Page page=activePage();if(page==null||page.crashed){destroyPage(tab.id);page=createPage(tab);attach(page);page.view.loadUrl(tab.url);}else{page.error="";page.view.reload();}
+        Page page=activePage();if(page==null||page.crashed){destroyPage(tab.id);page=createPage(tab);attach(page);page.view.loadUrl(tab.url);}else{page.error="";page.pendingHttpErrorUrl="";page.pendingHttpError="";page.view.reload();}
     }
     private void handlePageBack(){Page page=activePage();if(page!=null&&!page.crashed&&page.view.canGoBack())page.view.goBack();}
     private void handleBack(){if(fullscreenCallback!=null){exitFullscreen();return;}if(websiteFullscreen){setWebsiteFullscreen(false);return;}if(findBar.getVisibility()==View.VISIBLE){closeFind();return;}Page page=activePage();if(page!=null&&!page.crashed&&page.view.canGoBack())page.view.goBack();else if(session.tabs.size()>1)closeTab(session.activeId);else finish();}
