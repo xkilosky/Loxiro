@@ -7,12 +7,12 @@ const enc=encodeURIComponent;
 const params=(base,values)=>{const u=new URL(base);for(const [k,v]of Object.entries(values))if(v!==undefined&&v!=='')u.searchParams.set(k,String(v));return u.href;};
 
 export const PROVIDERS=[
-  {id:'wikipedia',label:'Wikipedia',family:'wikimedia',kind:'knowledge',access:'keyless',priority:50,minInterval:250,async run(q,env){
+  {id:'wikipedia',label:'Wikipedia',family:'wikimedia',kind:'knowledge',access:'keyless',priority:50,minInterval:250,lexical:true,async run(q,env){
     const d=await json(params('https://en.wikipedia.org/w/api.php',{action:'query',generator:'search',gsrsearch:websiteSubject(specialistQuery(q)),gsrlimit:8,prop:'extracts',exintro:1,explaintext:1,exsentences:2,format:'json'}),{env});
     if(d.error)throw new Error('Wikipedia unavailable');
     return Object.values(d.query?.pages||{}).sort((a,b)=>a.index-b.index).map(p=>({title:p.title,url:`https://en.wikipedia.org/wiki/${enc(p.title.replace(/ /g,'_'))}`,extract:p.extract||''}));
   }},
-  {id:'wikidata',label:'Wikidata',family:'wikimedia',kind:'knowledge',access:'keyless',priority:45,minInterval:500,async run(q,env){
+  {id:'wikidata',label:'Wikidata',family:'wikimedia',kind:'knowledge',access:'keyless',priority:45,minInterval:500,lexical:true,async run(q,env){
     const search=websiteSubject(q);
     const d=await json(params('https://www.wikidata.org/w/api.php',{action:'wbsearchentities',search,language:'en',uselang:'en',type:'item',limit:6,format:'json'}),{env});
     if(d.error)throw new Error('Wikidata unavailable');
@@ -31,14 +31,14 @@ export const PROVIDERS=[
     }catch{return references;}
 
   }},
-  {id:'duckduckgo',label:'DuckDuckGo Instant Answers',kind:'knowledge',access:'keyless',priority:20,minInterval:1000,async run(q,env){
+  {id:'duckduckgo',label:'DuckDuckGo Instant Answers',kind:'knowledge',access:'keyless',priority:20,minInterval:1000,lexical:true,async run(q,env){
     const d=await json(params('https://api.duckduckgo.com/',{q,format:'json',no_html:1,skip_disambig:0}),{env});
     const out=[];
     if(d.AbstractURL&&d.AbstractText)out.push({title:d.Heading||q,url:d.AbstractURL,extract:d.AbstractText});
     for(const t of (d.RelatedTopics||[]).flatMap(t=>t.Topics||[t]).slice(0,8))if(t.FirstURL&&t.Text)out.push({title:t.Text.split(' - ')[0].slice(0,180),url:t.FirstURL,extract:t.Text});
     return out;
   }},
-  {id:'linked_sources',label:'Wikipedia-linked sources',family:'wikimedia',kind:'knowledge',access:'keyless',priority:65,minInterval:500,async run(q,env){
+  {id:'linked_sources',label:'Wikipedia-linked sources',family:'wikimedia',kind:'knowledge',access:'keyless',priority:65,minInterval:500,lexical:true,async run(q,env){
     const d=await json(params('https://en.wikipedia.org/w/api.php',{action:'query',generator:'search',gsrsearch:websiteSubject(specialistQuery(q)),gsrlimit:3,prop:'extlinks',ellimit:50,format:'json'}),{env});
     if(d.error)throw new Error('Article source discovery unavailable');
     return linkedSources(d.query?.pages);

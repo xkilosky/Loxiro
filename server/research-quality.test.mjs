@@ -22,6 +22,13 @@ describe('research quality regressions',()=>{
     expect(tokenCoverage('what is React?','A chemical reaction')).toBe(0);expect(tokenCoverage('What is solar energy?','Solar energy systems')).toBe(1);
     expect(tokenCoverage('Qué es la fotosíntesis','Fotosintesis de plantas')).toBe(1);
   });
+  it('does not use diversity to promote unrelated knowledge pages over relevant websites',async()=>{
+    const runtime=createProviderRuntime();
+    const wiki={...PROVIDERS.find(p=>p.id==='wikipedia'),run:async()=>[item('https://en.wikipedia.org/wiki/Fetch','Fetch','Fetch may refer to:'),item('https://en.wikipedia.org/wiki/Comparison','Comparison of JavaScript frameworks'),item('https://en.wikipedia.org/wiki/Fetch_API','JavaScript Fetch API','JavaScript interface')]};
+    const data=await runtime.run(wiki,'javascript fetch API',{});expect(data.results.map(r=>r.title)).toEqual(['JavaScript Fetch API']);
+    const links={...PROVIDERS.find(p=>p.id==='linked_sources'),run:async()=>linkedSources({1:{title:'Ajax (programming)',extlinks:[{url:'https://id.loc.gov/authorities/sh2006004062'}]}})};
+    expect((await runtime.run(links,'javascript fetch API',{})).results).toHaveLength(0);
+  });
   it('never pads a thin response with eight encyclopedia pages',()=>{
     const r=rankResults([{provider:'Wikipedia',results:Array.from({length:8},(_,i)=>item(`https://en.wikipedia.org/wiki/Solar_${i}`,'Solar energy'))}],'solar energy');expect(r).toHaveLength(2);expect(r.every(r=>r.kind==='reference')).toBe(true);
   });

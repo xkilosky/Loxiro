@@ -118,3 +118,5 @@ User correction: searches must include actual websites, not only Wikipedia.
 - Validation: unit/backend/category regressions, typecheck, production build; browser suites retain Android single-omnibox, tabs, downloads and offline behavior. New research rendering smoke checks badges, article trail, domain counts, 360–1440px layouts and light/dark axe. Live-provider spot checks are separate from mocked rendering tests.
 
 - Live review refinement: soft content-category diversity preserves room for original websites/registry records instead of a DOI-only replacement feed; scholarly/community candidates backfill if alternatives run out. Community-shared articles are distinguished from actual discussion pages, and clinical registry update dates are displayed when supplied.
+
+- Knowledge and article-linked discovery also pass the substantive lexical gate: diversity must not promote unrelated disambiguation/authority pages over relevant website candidates. Regression covers JavaScript Fetch API versus generic “Fetch” / JavaScript-framework pages.
