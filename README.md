@@ -186,3 +186,8 @@ The web workspace could not keep its tab switcher visible after handing a websit
 Web validation: **198 tests / 11 files**, typecheck/build, existing browser/offline/tab/download suites, and the added `npm run test:android-web` passed. The latter tests the native UA presentation hint: no duplicate web tab strip, no hidden workspace-tab shortcuts, honest system-download/export/clear-data UI, popup handoff, mobile layout/axe, and unchanged behavior for ordinary Android browser UAs. It is not a substitute for the separate emulator tests.
 
 Android preview.6 uses matching native OLED chrome, settings and tab overview; third-party pages and their previews are not recolored. Switching the hosted app to White changes Home/results, not Android’s native chrome. A new APK is needed for native palette changes.
+
+
+### Android website fullscreen — preview.7
+
+On a website, choose **⋮ → Full screen website**. Only a floating native **Tabs** count button remains; switch existing website tabs without leaving fullscreen. Android Back restores the address bar before navigating history. Rotation keeps the mode, while New tab/Home and failed pages restore normal controls. This requires the updated Android APK; it is not a hosted-PWA feature. See [native fullscreen behavior and limits](android/README.md#fullscreen-websites--preview7).

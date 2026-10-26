@@ -92,7 +92,7 @@ final class BrowserSettingsDialog extends Dialog {
         description("75–200%. Resizes website text, not images or browser controls. Some sites use fixed layouts and may not fully respond.");
         toggle("Pinch to zoom","Use two fingers to magnify a page. Websites may limit the available zoom range.",settings.pinchZoom,value->settings.pinchZoom=value);
         heading("Accessibility");
-        toggle("Roomier address bar","Larger address text and a 72dp toolbar instead of 56dp. Uses a little more website space.",settings.largeControls,value->settings.largeControls=value);
+        toggle("Roomier address bar","Larger address text, a 72dp toolbar instead of 56dp, and a larger fullscreen Tabs button. Uses a little more website space.",settings.largeControls,value->settings.largeControls=value);
         action("Android accessibility settings","TalkBack, magnification and other device accessibility services are managed by Android.",v->actions.accessibility());
         action("Android display settings","Adjust your device’s font and display size. Loxiro’s native text follows the system font scale.",v->actions.display());
         heading("Tabs & privacy");

@@ -214,6 +214,58 @@ public class BrowserActivityTest {
         BrowserSettings s=new SettingsStore(context).load();assertEquals(100,s.textZoom);assertTrue(s.pinchZoom);assertTrue(s.tabPreviews);assertFalse(s.keepScreenOn);
         context.getSharedPreferences("native-settings-v1",Context.MODE_PRIVATE).edit().putInt("textZoom",99999).commit();assertEquals(200,new SettingsStore(context).load().textZoom);
     }
+    private void enterWebsiteFullscreen(){
+        onView(withContentDescription("Browser options")).perform(click());onView(withText("Full screen website")).perform(click());
+        long end=SystemClock.uptimeMillis()+5000;AtomicBoolean ready=new AtomicBoolean();
+        while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->ready.set(a.isWebsiteFullscreen()&&!a.getWindow().getDecorView().getRootWindowInsets().isVisible(android.view.WindowInsets.Type.systemBars())));if(ready.get())break;SystemClock.sleep(50);}
+        assertTrue("Fullscreen should hide system bars",ready.get());
+    }
+    private int visibleNativeButtons(View view){
+        if(!view.isShown()||view instanceof WebView)return 0;
+        if(view instanceof android.widget.Button)return 1;
+        int n=0;if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;for(int i=0;i<group.getChildCount();i++)n+=visibleNativeButtons(group.getChildAt(i));}return n;
+    }
+    private void assertWebsiteFullscreen(){
+        onView(withId(R.id.fullscreen_tabs)).check(matches(isDisplayed()));
+        scenario.onActivity(a->{
+            assertTrue(a.isWebsiteFullscreen());assertFalse(a.isPageFullscreen());
+            assertEquals(View.GONE,a.findViewById(R.id.browser_toolbar).getVisibility());assertEquals(View.GONE,a.findViewById(R.id.find_bar).getVisibility());assertFalse(a.findViewById(R.id.address).isShown());
+            View content=a.findViewById(R.id.web_content);View stage=(View)content.getParent().getParent();assertEquals("Only Tabs is visible native browser chrome",1,visibleNativeButtons(stage));
+            View tabs=a.findViewById(R.id.fullscreen_tabs);int[] xy=new int[2];tabs.getLocationOnScreen(xy);assertTrue(xy[0]>=0&&xy[1]>=0);assertTrue(tabs.getWidth()>=48*a.getResources().getDisplayMetrics().density);assertTrue(tabs.getHeight()>=48*a.getResources().getDisplayMetrics().density);
+        });
+    }
+    @Test public void websiteFullscreenKeepsOnlyTabsAcrossSwitchingRecreationRotationAndBack() throws Exception {
+        scenario.onActivity(a->a.onNewIntent(new Intent(Intent.ACTION_VIEW,android.net.Uri.parse(origin+"/two"))));awaitTitle("Second fixture");
+        java.util.concurrent.atomic.AtomicInteger height=new java.util.concurrent.atomic.AtomicInteger();scenario.onActivity(a->height.set(a.findViewById(R.id.web_content).getHeight()));
+        enterWebsiteFullscreen();assertWebsiteFullscreen();
+        scenario.onActivity(a->assertTrue("Website expands into the former toolbar",a.findViewById(R.id.web_content).getHeight()>height.get()+48*a.getResources().getDisplayMetrics().density));saveScreenshot("website-fullscreen.png");
+        onView(withId(R.id.fullscreen_tabs)).perform(click());onView(withContentDescription("Go to First fixture")).perform(scrollTo(),click());awaitTitle("First fixture");assertWebsiteFullscreen();
+        onView(withId(R.id.fullscreen_tabs)).perform(click());onView(withContentDescription("Go to Second fixture")).perform(scrollTo(),click());awaitTitle("Second fixture");assertWebsiteFullscreen();
+        scenario.recreate();awaitTitle("Second fixture");assertWebsiteFullscreen();
+        scenario.onActivity(a->a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));awaitOrientation(android.content.res.Configuration.ORIENTATION_LANDSCAPE);awaitTitle("Second fixture");assertWebsiteFullscreen();saveScreenshot("website-fullscreen-landscape.png");
+        scenario.onActivity(a->a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));awaitOrientation(android.content.res.Configuration.ORIENTATION_PORTRAIT);awaitTitle("Second fixture");assertWebsiteFullscreen();
+        scenario.onActivity(a->((WebView)((android.widget.FrameLayout)a.findViewById(R.id.web_content)).getChildAt(0)).loadUrl(origin+"/one"));awaitTitle("First fixture");assertWebsiteFullscreen();
+        androidx.test.espresso.Espresso.pressBack();onView(withId(R.id.address)).check(matches(isDisplayed()));assertCompactChrome();
+        scenario.onActivity(a->{assertFalse(a.isWebsiteFullscreen());assertEquals(origin+"/one",a.activeUrl());assertEquals(2,a.nativeTabCount());assertFalse(a.findViewById(R.id.fullscreen_tabs).isShown());});
+        androidx.test.espresso.Espresso.pressBack();awaitTitle("Second fixture");scenario.onActivity(a->assertEquals(2,a.nativeTabCount()));
+    }
+    @Test public void websitePopupKeepsFullscreenTabsAvailable(){
+        enterWebsiteFullscreen();
+        onView(isAssignableFrom(WebView.class)).perform(new GeneralClickAction(Tap.SINGLE,view->{int[] p=new int[2];view.getLocationOnScreen(p);float d=view.getResources().getDisplayMetrics().density;return new float[]{p[0]+80*d,p[1]+60*d};},Press.FINGER));
+        awaitTitle("Second fixture");assertWebsiteFullscreen();scenario.onActivity(a->assertEquals(2,a.nativeTabCount()));
+    }
+    @Test public void newTabFromFullscreenRestoresTheAddressBar(){
+        enterWebsiteFullscreen();onView(withId(R.id.fullscreen_tabs)).perform(click());onView(withId(R.id.new_tab)).perform(click());awaitTitle("First fixture");
+        onView(withId(R.id.address)).check(matches(isDisplayed()));scenario.onActivity(a->{assertFalse(a.isWebsiteFullscreen());assertEquals(2,a.nativeTabCount());});assertCompactChrome();
+    }
+    @Test public void closingLastFullscreenTabRestoresHomeControls(){
+        enterWebsiteFullscreen();onView(withId(R.id.fullscreen_tabs)).perform(click());onView(withContentDescription("Close First fixture")).perform(scrollTo(),click());awaitTitle("First fixture");
+        onView(withContentDescription("Return to website")).perform(click());onView(withId(R.id.address)).check(matches(isDisplayed()));scenario.onActivity(a->{assertFalse(a.isWebsiteFullscreen());assertEquals(1,a.nativeTabCount());});
+    }
+    @Test public void fullscreenTabsRespectsRoomierTouchControls(){
+        openBrowserSettings();onView(withText("Roomier address bar")).perform(scrollTo(),click());onView(withContentDescription("Close browser settings")).perform(click());
+        enterWebsiteFullscreen();assertWebsiteFullscreen();scenario.onActivity(a->assertEquals(Math.round(64*a.getResources().getDisplayMetrics().density),a.findViewById(R.id.fullscreen_tabs).getHeight()));
+    }
     private void saveScreenshot(String name) throws Exception {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         Bitmap image=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();assertNotNull(image);

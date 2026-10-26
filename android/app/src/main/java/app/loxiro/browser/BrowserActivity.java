@@ -68,6 +68,9 @@ public final class BrowserActivity extends Activity {
     private BrowserSettingsDialog settingsDialog;
     private String home=UrlPolicy.HOME;
     private FrameLayout content,fullscreenHost;
+    private boolean websiteFullscreen;
+    private int websitePreviousSystemUi,websitePreviousBarsBehavior;
+    private Button fullscreenTabs;
     private LinearLayout browserChrome,findBar;
     private EditText findInput;
     private TextView findCount;
@@ -107,6 +110,7 @@ public final class BrowserActivity extends Activity {
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
             android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::handleBack);
         select(session.activeId);
+        if(saved!=null&&saved.getBoolean("website_fullscreen",false))setWebsiteFullscreen(true);
         if(saved==null)handleExternalIntent(getIntent());
     }
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);handleExternalIntent(intent);}
@@ -136,14 +140,14 @@ public final class BrowserActivity extends Activity {
         if(Build.VERSION.SDK_INT>=30) {
             getWindow().setDecorFitsSystemWindows(false);
             root.setOnApplyWindowInsetsListener((v,insets)->{
-                Insets i=insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
+                Insets i=insets.getInsets(websiteFullscreen?WindowInsets.Type.displayCutout()|WindowInsets.Type.ime():WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout()|WindowInsets.Type.ime());
                 v.setPadding(i.left,i.top,i.right,i.bottom);return insets;
             });
         } else {
             root.setFitsSystemWindows(true);getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         }
         // One 56dp row regardless of tab count. The tab list is an on-demand dialog,
-        // never a second persistent toolbar or an overlay on website content.
+        // never a second persistent toolbar. Website fullscreen uses a separate floating Tabs control.
         LinearLayout navigation=row();navigation.setId(R.id.browser_toolbar);navigation.setPadding(dp(4),dp(4),dp(4),dp(4));
         back=button("‹","Back",v->handlePageBack());back.setTextSize(26);
         navigation.addView(back,new LinearLayout.LayoutParams(dp(48),dp(48)));
@@ -170,7 +174,18 @@ public final class BrowserActivity extends Activity {
         errorBanner=new TextView(this);errorBanner.setTextSize(12);errorBanner.setTextColor(BrowserPalette.ERROR);errorBanner.setPadding(dp(12),dp(8),dp(12),dp(8));errorBanner.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);root.addView(errorBanner);
         content=new FrameLayout(this);content.setId(R.id.web_content);root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
         FrameLayout stage=new FrameLayout(this);stage.addView(root,new FrameLayout.LayoutParams(-1,-1));
-        fullscreenHost=new FrameLayout(this);fullscreenHost.setId(R.id.fullscreen_content);fullscreenHost.setBackgroundColor(Color.BLACK);fullscreenHost.setVisibility(View.GONE);stage.addView(fullscreenHost,new FrameLayout.LayoutParams(-1,-1));setContentView(stage);
+        fullscreenHost=new FrameLayout(this);fullscreenHost.setId(R.id.fullscreen_content);fullscreenHost.setBackgroundColor(Color.BLACK);fullscreenHost.setVisibility(View.GONE);stage.addView(fullscreenHost,new FrameLayout.LayoutParams(-1,-1));
+        fullscreenTabs=button("1","Website tabs in full screen",v->showOverview());fullscreenTabs.setId(R.id.fullscreen_tabs);fullscreenTabs.setTextSize(13);fullscreenTabs.setTypeface(null,Typeface.BOLD);
+        GradientDrawable floating=surface(BrowserPalette.SURFACE,16);floating.setStroke(dp(1),BrowserPalette.ACCENT);
+        fullscreenTabs.setBackground(new RippleDrawable(ColorStateList.valueOf(BrowserPalette.RIPPLE),floating,null));fullscreenTabs.setElevation(dp(8));fullscreenTabs.setVisibility(View.GONE);
+        FrameLayout.LayoutParams floatingParams=new FrameLayout.LayoutParams(dp(56),dp(52),Gravity.BOTTOM|Gravity.END);floatingParams.setMargins(dp(16),dp(16),dp(16),dp(16));stage.addView(fullscreenTabs,floatingParams);
+        // The trusted native Tabs button remains outside website DOM and avoids gesture/cutout/IME areas.
+        stage.setOnApplyWindowInsetsListener((v,insets)->{
+            Insets safe=Build.VERSION.SDK_INT>=30?insets.getInsets(WindowInsets.Type.displayCutout()|WindowInsets.Type.mandatorySystemGestures()|WindowInsets.Type.ime()):insets.getMandatorySystemGestureInsets();
+            int bottom=Build.VERSION.SDK_INT>=30?safe.bottom:Math.max(safe.bottom,insets.getSystemWindowInsetBottom());
+            FrameLayout.LayoutParams lp=(FrameLayout.LayoutParams)fullscreenTabs.getLayoutParams();lp.setMargins(dp(16)+safe.left,dp(16)+safe.top,dp(16)+safe.right,dp(16)+bottom);fullscreenTabs.setLayoutParams(lp);return insets;
+        });
+        setContentView(stage);
     }
     private void navigateInput() {
         String url=UrlPolicy.resolve(address.getText().toString());
@@ -191,6 +206,8 @@ public final class BrowserActivity extends Activity {
         Page old=activePage();
         TabSession.Tab tab=session.add(url);
         if(tab==null){toast("Maximum "+TabSession.MAX_TABS+" website tabs. Close one first.");return null;}
+        if(!load){tab.url="about:blank";tab.title="New page";}
+        if(load&&home.equals(url))setWebsiteFullscreen(false);
         if(old!=null&&!old.crashed)old.view.onPause();
         Page page=createPage(tab);attach(page);if(load)page.view.loadUrl(url);
         trimPages();store.save(session);renderChrome();return tab;
@@ -198,14 +215,17 @@ public final class BrowserActivity extends Activity {
     private void select(String id) {
         if(clearInProgress)return;
         leavePageTools();
-        if(!id.equals(session.activeId))capturePreview();
+        boolean switching=!id.equals(session.activeId);
+        if(switching)capturePreview();
         for(Page background:pages.values())if(!background.id.equals(id)&&!background.crashed)background.view.onPause();
         if(!session.select(id))return;
+        if(UrlPolicy.isHomeSurface(session.active().url))setWebsiteFullscreen(false);
         uploads.cancelOwner(id);if(id.equals(fullscreenOwner))exitFullscreen();if(id.equals(findOwner))closeFind();
         Page page=pages.remove(id);
         if(page!=null)pages.put(id,page);
         if(page==null){page=createPage(session.active());page.view.loadUrl(session.active().url);}
         attach(page);page.view.onResume();address.clearFocus();trimPages();store.save(session);renderChrome();
+        if(websiteFullscreen&&switching)announceWebsiteFullscreen(session.active().url);
     }
     private void attach(Page page) {
         content.removeAllViews();
@@ -232,7 +252,9 @@ public final class BrowserActivity extends Activity {
             @Override public void onPageStarted(WebView web,String url,android.graphics.Bitmap favicon) {
                 if(!alive(page))return;
                 uploads.cancelOwner(page.id);if(page.id.equals(session.activeId)){exitFullscreen();closeFind();}
-                TabSession.Tab t=session.find(page.id);if(UrlPolicy.isWebUrl(url)||"about:blank".equals(url)){t.url=url;t.title="";}
+                TabSession.Tab t=session.find(page.id);
+                if(websiteFullscreen&&page.id.equals(session.activeId)&&!UrlPolicy.isHomeSurface(url)&&!fullscreenOrigin(t.url).equals(fullscreenOrigin(url)))announceWebsiteFullscreen(url);
+                if(UrlPolicy.isWebUrl(url)||"about:blank".equals(url)){t.url=url;t.title="";}
                 previews.remove(page.id);page.loading=true;page.error="";page.progress=0;changed(page);
             }
             @Override public void doUpdateVisitedHistory(WebView web,String url,boolean reload) {
@@ -295,11 +317,16 @@ public final class BrowserActivity extends Activity {
         address.setContentDescription("Address or search"+(active.url.regionMatches(true,0,"http:",0,5)?" — not secure":""));
         tabCount.setText(String.valueOf(session.tabs.size()));tabCount.setContentDescription("Manage website tabs ("+session.tabs.size()+")");
         back.setEnabled(page!=null&&!page.crashed&&page.view.canGoBack());
-        progress.setProgress(page==null?0:page.progress);progress.setVisibility(page!=null&&page.loading?View.VISIBLE:View.INVISIBLE);
-        String error=page==null?"":page.error;errorBanner.setText(error);errorBanner.setVisibility(error.isEmpty()?View.GONE:View.VISIBLE);
+        if(websiteFullscreen&&(UrlPolicy.isHomeSurface(active.url)||(page!=null&&(page.crashed||!page.error.isEmpty())))){setWebsiteFullscreen(false);return;}
+        findViewById(R.id.browser_toolbar).setVisibility(websiteFullscreen?View.GONE:View.VISIBLE);
+        fullscreenTabs.setText(String.valueOf(session.tabs.size()));fullscreenTabs.setContentDescription("Website tabs ("+session.tabs.size()+") — "+fullscreenOrigin(active.url)+". Back exits full screen.");
+        fullscreenTabs.setVisibility(websiteFullscreen&&fullscreenCallback==null?View.VISIBLE:View.GONE);
+        progress.setProgress(page==null?0:page.progress);progress.setVisibility(websiteFullscreen?View.GONE:page!=null&&page.loading?View.VISIBLE:View.INVISIBLE);
+        String error=page==null?"":page.error;errorBanner.setText(error);errorBanner.setVisibility(websiteFullscreen||error.isEmpty()?View.GONE:View.VISIBLE);
     }
     private void closeTab(String id) {
         if(clearInProgress)return;
+        if(session.tabs.size()==1)setWebsiteFullscreen(false);
         previews.remove(id);destroyPage(id);session.close(id,home);select(session.activeId);refreshOverview();
     }
     private void reloadActive() {
@@ -307,7 +334,7 @@ public final class BrowserActivity extends Activity {
         Page page=activePage();if(page==null||page.crashed){destroyPage(tab.id);page=createPage(tab);attach(page);page.view.loadUrl(tab.url);}else{page.error="";page.view.reload();}
     }
     private void handlePageBack(){Page page=activePage();if(page!=null&&!page.crashed&&page.view.canGoBack())page.view.goBack();}
-    private void handleBack(){if(fullscreenCallback!=null){exitFullscreen();return;}if(findBar.getVisibility()==View.VISIBLE){closeFind();return;}Page page=activePage();if(page!=null&&!page.crashed&&page.view.canGoBack())page.view.goBack();else if(session.tabs.size()>1)closeTab(session.activeId);else finish();}
+    private void handleBack(){if(fullscreenCallback!=null){exitFullscreen();return;}if(websiteFullscreen){setWebsiteFullscreen(false);return;}if(findBar.getVisibility()==View.VISIBLE){closeFind();return;}Page page=activePage();if(page!=null&&!page.crashed&&page.view.canGoBack())page.view.goBack();else if(session.tabs.size()>1)closeTab(session.activeId);else finish();}
     @SuppressWarnings("deprecation") @Override public void onBackPressed(){handleBack();}
     private void destroyPage(String id) {
         Page page=pages.remove(id);if(page==null||page.crashed)return;
@@ -340,7 +367,7 @@ public final class BrowserActivity extends Activity {
             public boolean restore(String id){return restoreClosedTab(id);}
             public void options(String id){showTabOptions(id);}
         });
-        overview.setOnDismissListener(d->{overview=null;});overview.show();setKeepAwake(overview.getWindow());
+        overview.setOnDismissListener(d->{overview=null;if(websiteFullscreen)hideWebsiteSystemBars();});overview.show();setKeepAwake(overview.getWindow());
     }
     private void dismissOverview(){if(overview!=null)overview.dismiss();}
     private void refreshOverview(){if(overview!=null)overview.refresh();}
@@ -360,7 +387,9 @@ public final class BrowserActivity extends Activity {
         }).show();
     }
     private void showOptions() {
-        new AlertDialog.Builder(this).setTitle("Loxiro Android Preview").setItems(new String[]{"Browser settings","Find in page","Share page","Default browser","Website tabs","Reopen last closed tab","Open page in external browser","Android downloads","Close unpinned tabs","Clear browser data","About this preview","Home","Forward","Reload / stop","New tab"},(d,choice)->{
+        new AlertDialog.Builder(this).setTitle("Loxiro Android Preview").setItems(new String[]{"Browser settings","Full screen website","Find in page","Share page","Default browser","Website tabs","Reopen last closed tab","Open page in external browser","Android downloads","Close unpinned tabs","Clear browser data","About this preview","Home","Forward","Reload / stop","New tab"},(d,selected)->{
+            if(selected==1){setWebsiteFullscreen(true);return;}
+            int choice=selected>1?selected-1:selected;
             if(choice==0){showSettings();return;}
             if(choice==1){showFind();return;}
             if(choice==2){sharePage();return;}
@@ -415,10 +444,45 @@ public final class BrowserActivity extends Activity {
         findOwner=null;findQuery="";findBar.setVisibility(View.GONE);findInput.setText("");
         if(findInput.hasFocus()){findInput.clearFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(findInput.getWindowToken(),0);}
     }
+    private String fullscreenOrigin(String url){
+        if(!UrlPolicy.isWebUrl(url))return "New page";
+        Uri location=Uri.parse(url);return location.getScheme()+"://"+location.getAuthority()+("http".equalsIgnoreCase(location.getScheme())?" (not secure)":"");
+    }
+    private void announceWebsiteFullscreen(String url){toast("Full screen: "+fullscreenOrigin(url)+". Back shows the address bar.");}
+    /** User-initiated website layout, separate from WebChromeClient's video/custom-view fullscreen. */
+    private void setWebsiteFullscreen(boolean enabled){
+        if(enabled==websiteFullscreen)return;
+        Page page=activePage();
+        if(enabled&&(page==null||page.crashed||!page.error.isEmpty()||UrlPolicy.isHomeSurface(session.active().url))){toast("Open a working website before entering full screen.");return;}
+        exitFullscreen();closeFind();
+        if(enabled){
+            websitePreviousSystemUi=getWindow().getDecorView().getSystemUiVisibility();
+            if(Build.VERSION.SDK_INT>=30&&getWindow().getInsetsController()!=null)websitePreviousBarsBehavior=getWindow().getInsetsController().getSystemBarsBehavior();
+        }
+        websiteFullscreen=enabled;
+        address.clearFocus();browserChrome.requestFocus();
+        ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(address.getWindowToken(),0);
+        if(Build.VERSION.SDK_INT<30){browserChrome.setFitsSystemWindows(!enabled);if(enabled)browserChrome.setPadding(0,0,0,0);}
+        if(enabled){
+            hideWebsiteSystemBars();announceWebsiteFullscreen(session.active().url);
+        }else{
+            if(Build.VERSION.SDK_INT>=30){android.view.WindowInsetsController c=getWindow().getInsetsController();if(c!=null){c.setSystemBarsBehavior(websitePreviousBarsBehavior);c.show(WindowInsets.Type.systemBars());}}
+            else getWindow().getDecorView().setSystemUiVisibility(websitePreviousSystemUi);
+        }
+        renderChrome();browserChrome.requestApplyInsets();fullscreenTabs.requestApplyInsets();
+    }
+    @SuppressWarnings("deprecation")
+    private void hideWebsiteSystemBars(){
+        if(!websiteFullscreen||fullscreenCallback!=null)return;
+        if(Build.VERSION.SDK_INT>=30){android.view.WindowInsetsController c=getWindow().getInsetsController();if(c!=null){c.setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);c.hide(WindowInsets.Type.systemBars());}}
+        else getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+    }
+    @Override public void onWindowFocusChanged(boolean hasFocus){super.onWindowFocusChanged(hasFocus);if(hasFocus&&websiteFullscreen&&overview==null&&settingsDialog==null)hideWebsiteSystemBars();}
     private void leavePageTools(){exitFullscreen();closeFind();uploads.cancel();}
     private void enterFullscreen(String id,View custom,WebChromeClient.CustomViewCallback callback){
         if(fullscreenCallback!=null||custom.getParent()!=null){callback.onCustomViewHidden();return;}
         closeFind();uploads.cancel();fullscreenOwner=id;fullscreenCallback=callback;
+        fullscreenTabs.setVisibility(View.GONE);
         previousSystemUi=getWindow().getDecorView().getSystemUiVisibility();browserChrome.setVisibility(View.GONE);fullscreenHost.setVisibility(View.VISIBLE);
         fullscreenHost.addView(custom,new FrameLayout.LayoutParams(-1,-1));
         Button exit=button("×","Exit full screen",v->exitFullscreen());exit.setTextColor(Color.WHITE);exit.setBackgroundColor(0xaa202124);
@@ -430,9 +494,9 @@ public final class BrowserActivity extends Activity {
         if(fullscreenCallback==null)return;
         WebChromeClient.CustomViewCallback callback=fullscreenCallback;fullscreenCallback=null;fullscreenOwner=null;
         fullscreenHost.removeAllViews();fullscreenHost.setVisibility(View.GONE);browserChrome.setVisibility(View.VISIBLE);
-        if(Build.VERSION.SDK_INT>=30){android.view.WindowInsetsController controller=getWindow().getInsetsController();if(controller!=null){controller.show(WindowInsets.Type.systemBars());controller.setSystemBarsBehavior(previousBarsBehavior);}}
+        if(Build.VERSION.SDK_INT>=30){android.view.WindowInsetsController controller=getWindow().getInsetsController();if(controller!=null){if(!websiteFullscreen)controller.show(WindowInsets.Type.systemBars());controller.setSystemBarsBehavior(previousBarsBehavior);}}
         else getWindow().getDecorView().setSystemUiVisibility(previousSystemUi);
-        callback.onCustomViewHidden();
+        callback.onCustomViewHidden();renderChrome();if(websiteFullscreen)hideWebsiteSystemBars();
     }
     private void sharePage(){
         TabSession.Tab tab=session.active();if(tab==null||!UrlPolicy.isWebUrl(tab.url)){toast("This page has no shareable website URL yet.");return;}
@@ -482,6 +546,7 @@ public final class BrowserActivity extends Activity {
         LinearLayout toolbar=findViewById(R.id.browser_toolbar);
         toolbar.getLayoutParams().height=dp(preferences.largeControls?72:56);
         for(int i=0;i<toolbar.getChildCount();i++){View child=toolbar.getChildAt(i);child.getLayoutParams().height=dp(preferences.largeControls?64:48);}
+        fullscreenTabs.getLayoutParams().width=dp(preferences.largeControls?72:56);fullscreenTabs.getLayoutParams().height=dp(preferences.largeControls?64:52);fullscreenTabs.setTextSize(preferences.largeControls?16:13);fullscreenTabs.requestLayout();
         address.setTextSize(preferences.largeControls?17:13);tabCount.setTextSize(preferences.largeControls?16:14);toolbar.requestLayout();
         if(settingsDialog!=null)setKeepAwake(settingsDialog.getWindow());
         if(overview!=null)setKeepAwake(overview.getWindow());
@@ -524,13 +589,14 @@ public final class BrowserActivity extends Activity {
     }
     @Override protected void onPause(){exitFullscreen();super.onPause();Page p=activePage();if(p!=null&&!p.crashed)p.view.onPause();if(store!=null&&!clearInProgress)store.save(session);}
     @Override protected void onResume(){super.onResume();Page p=activePage();if(p!=null&&!p.crashed)p.view.onResume();}
-    @Override protected void onSaveInstanceState(Bundle state){state.putBoolean("upload_pending",uploads.pending());if(!clearInProgress)store.save(session);super.onSaveInstanceState(state);}
+    @Override protected void onSaveInstanceState(Bundle state){state.putBoolean("upload_pending",uploads.pending());state.putBoolean("website_fullscreen",websiteFullscreen);if(!clearInProgress)store.save(session);super.onSaveInstanceState(state);}
     @Override public void onTrimMemory(int level){super.onTrimMemory(level);if(level>=TRIM_MEMORY_RUNNING_LOW){previews.clear();for(String id:new ArrayList<>(pages.keySet()))if(!id.equals(session.activeId))destroyPage(id);refreshOverview();}}
     @Override protected void onDestroy(){destroying=true;leavePageTools();dismissOverview();if(settingsDialog!=null)settingsDialog.dismiss();previews.clear();if(store!=null&&!clearInProgress)store.save(session);for(String id:new ArrayList<>(pages.keySet()))destroyPage(id);super.onDestroy();}
     // Package-private instrumentation observations; not exposed to website JavaScript.
     boolean activePageReady(){Page page=activePage();return page!=null&&!page.crashed&&!page.loading&&page.view.getWidth()>0&&page.view.getHeight()>0&&(overview!=null||settingsDialog!=null||fullscreenCallback!=null||(page.view.isAttachedToWindow()&&page.view.getWindowVisibility()==View.VISIBLE&&getWindow().getDecorView().hasWindowFocus()));}
     void afterVisibleFrame(Runnable callback){if(overview!=null||settingsDialog!=null||fullscreenCallback!=null){callback.run();return;}Page page=activePage();if(page!=null&&!page.crashed){page.view.postOnAnimation(()->{if(!alive(page))return;page.view.postVisualStateCallback(0,new WebView.VisualStateCallback(){@Override public void onComplete(long id){callback.run();}});page.view.invalidate();});}}
     String uploadStatus(){return uploads.status;}
+    boolean isWebsiteFullscreen(){return websiteFullscreen;}
     boolean isPageFullscreen(){return fullscreenCallback!=null;}
     int previewCount(){return previews.size();}
     BrowserSettings nativeSettings(){return preferences;}
