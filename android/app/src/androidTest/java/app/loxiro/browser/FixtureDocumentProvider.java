@@ -18,8 +18,11 @@ public final class FixtureDocumentProvider extends ContentProvider {
     @Override public boolean onCreate(){return true;}
     @Override public Bundle call(String method,String arg,Bundle extras){
         if("grant".equals(method)&&"app.loxiro.browser".equals(arg)){
-            getContext().grantUriPermission(arg,Uri.parse("content://app.loxiro.browser.test.files/hello.txt"),Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            getContext().grantUriPermission(arg,Uri.parse("content://app.loxiro.browser.test.files/photo.png"),Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            long identity=android.os.Binder.clearCallingIdentity();
+            try{
+                getContext().grantUriPermission(arg,Uri.parse("content://app.loxiro.browser.test.files/hello.txt"),Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                getContext().grantUriPermission(arg,Uri.parse("content://app.loxiro.browser.test.files/photo.png"),Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            }finally{android.os.Binder.restoreCallingIdentity(identity);}
         }
         return Bundle.EMPTY;
     }
