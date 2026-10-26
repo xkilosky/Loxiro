@@ -65,3 +65,7 @@ The hosted app recognizes the `LoxiroAndroid/0.7` user-agent presentation marker
 ## Verification
 
 JVM tests cover URL policy and native tab identity, selection, close/reopen, pins, ordering and caps. Instrumentation uses a local HTTP server and **real touch events** to open a website popup, switch real WebViews beneath persistent native chrome, recreate the Activity, enter another website, and reject unsafe address input. These fixtures do not establish compatibility with every website. Build/emulator results must be checked in Actions; this sandbox has no Android SDK/JDK and cannot verify Android locally.
+
+## OLED palette — preview.6
+
+Native toolbar, address field, Find bar, settings, dialogs and tab overview now use an OLED-black/neutral-gray palette with white accents, white text and pale error text. Status/navigation bar icons are light. This changes browser chrome only, not third-party page styles or screenshot contents. Hosted Home/results provide independent OLED, White and System choices; no native White-theme toggle is claimed.

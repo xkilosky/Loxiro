@@ -52,6 +52,27 @@ public class BrowserActivityTest {
         Intent intent=new Intent(context,BrowserActivity.class);intent.putExtra("test_home",origin+"/one");scenario=ActivityScenario.launch(intent);
         awaitTitle("First fixture");
     }
+    @Test public void oledChromeUsesBlackSurfacesAndWhiteText() {
+        scenario.onActivity(activity->{
+            android.widget.EditText address=activity.findViewById(R.id.address);
+            assertEquals(android.graphics.Color.WHITE,address.getCurrentTextColor());
+            assertEquals(BrowserPalette.MUTED,address.getCurrentHintTextColor());
+            View root=(View)activity.findViewById(R.id.browser_toolbar).getParent();
+            assertEquals(android.graphics.Color.BLACK,((android.graphics.drawable.ColorDrawable)root.getBackground()).getColor());
+            android.content.res.TypedArray attrs=activity.obtainStyledAttributes(new int[]{android.R.attr.windowLightStatusBar,android.R.attr.windowLightNavigationBar});
+            assertFalse(attrs.getBoolean(0,true));assertFalse(attrs.getBoolean(1,true));attrs.recycle();
+        });
+        onView(withContentDescription("Manage website tabs")).perform(click());
+        onView(withId(R.id.new_tab)).check((view,error)->{
+            if(error!=null)throw error;
+            assertEquals(android.graphics.Color.BLACK,((android.widget.Button)view).getCurrentTextColor());
+        });
+        saveScreenshot("oled-tab-overview.png");
+        onView(withContentDescription("Return to website")).perform(click());
+        openBrowserSettings();saveScreenshot("oled-browser-settings.png");
+        onView(withContentDescription("Close browser settings")).perform(click());
+        saveScreenshot("oled-browser-toolbar.png");
+    }
     private void serve(Socket socket) {
         try(Socket s=socket){
             BufferedReader reader=new BufferedReader(new InputStreamReader(s.getInputStream(),StandardCharsets.UTF_8));String request=reader.readLine();

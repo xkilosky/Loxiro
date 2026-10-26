@@ -58,7 +58,7 @@ import java.util.Map;
 
 /** All browser chrome is Android UI outside every third-party WebView. */
 public final class BrowserActivity extends Activity {
-    private static final int INK=0xff242731, MUTED=0xff647084, ACCENT=0xff5368e8, BG=0xfff8f9fb;
+    private static final int INK=BrowserPalette.INK, MUTED=BrowserPalette.MUTED, ACCENT=BrowserPalette.ACCENT, BG=BrowserPalette.BACKGROUND;
     private static final int MAX_LIVE_VIEWS=3;
     private final LinkedHashMap<String, Page> pages=new LinkedHashMap<>();
     private TabSession session;
@@ -126,7 +126,7 @@ public final class BrowserActivity extends Activity {
     private Button button(String text,String label,View.OnClickListener action) {
         Button b=new Button(this);b.setText(text);b.setTextColor(INK);b.setTextSize(14);b.setAllCaps(false);
         b.setContentDescription(label);b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight(dp(48));b.setMinimumHeight(dp(48));
-        b.setPadding(dp(9),0,dp(9),0);b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x225368e8),surface(Color.TRANSPARENT,14),null));b.setOnClickListener(action);return b;
+        b.setPadding(dp(9),0,dp(9),0);b.setBackground(new RippleDrawable(ColorStateList.valueOf(BrowserPalette.RIPPLE),surface(Color.TRANSPARENT,14),null));b.setOnClickListener(action);return b;
     }
     private GradientDrawable surface(int color,int radius) {
         GradientDrawable shape=new GradientDrawable();shape.setColor(color);shape.setCornerRadius(dp(radius));return shape;
@@ -148,7 +148,7 @@ public final class BrowserActivity extends Activity {
         back=button("‹","Back",v->handlePageBack());back.setTextSize(26);
         navigation.addView(back,new LinearLayout.LayoutParams(dp(48),dp(48)));
         address=new EditText(this);address.setId(R.id.address);address.setSingleLine(true);address.setSelectAllOnFocus(true);
-        address.setTextSize(13);address.setHint("Search or enter website");address.setContentDescription("Address or search");
+        address.setTextColor(INK);address.setHintTextColor(MUTED);address.setTextSize(13);address.setHint("Search or enter website");address.setContentDescription("Address or search");
         address.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(4096)});
         address.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);address.setImeOptions(EditorInfo.IME_ACTION_GO);
         address.setOnEditorActionListener((v,action,event)->{
@@ -156,18 +156,18 @@ public final class BrowserActivity extends Activity {
                 navigateInput();return true;
             }return false;
         });
-        address.setBackground(surface(0xffedf0f6,16));address.setPadding(dp(12),0,dp(8),0);
+        address.setBackground(surface(BrowserPalette.RAISED,16));address.setPadding(dp(12),0,dp(8),0);
         navigation.addView(address,new LinearLayout.LayoutParams(0,dp(48),1));
         tabCount=button("1","Manage website tabs",v->showOverview());tabCount.setId(R.id.tab_count);
         tabCount.setTypeface(null,Typeface.BOLD);tabCount.setTextColor(ACCENT);
-        GradientDrawable counter=surface(0xffeef0ff,7);counter.setStroke(dp(1),ACCENT);
-        tabCount.setBackground(new RippleDrawable(ColorStateList.valueOf(0x225368e8),new InsetDrawable(counter,dp(10)),null));
+        GradientDrawable counter=surface(BrowserPalette.RAISED,7);counter.setStroke(dp(1),ACCENT);
+        tabCount.setBackground(new RippleDrawable(ColorStateList.valueOf(BrowserPalette.RIPPLE),new InsetDrawable(counter,dp(10)),null));
         navigation.addView(tabCount,new LinearLayout.LayoutParams(dp(48),dp(48)));
         navigation.addView(button("⋮","Browser options",v->showOptions()),new LinearLayout.LayoutParams(dp(48),dp(48)));
         root.addView(navigation,new LinearLayout.LayoutParams(-1,dp(56)));
         buildFindBar(root);
-        progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(100);root.addView(progress,new LinearLayout.LayoutParams(-1,dp(2)));
-        errorBanner=new TextView(this);errorBanner.setTextSize(12);errorBanner.setTextColor(0xff9a342f);errorBanner.setPadding(dp(12),dp(8),dp(12),dp(8));errorBanner.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);root.addView(errorBanner);
+        progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setProgressTintList(ColorStateList.valueOf(ACCENT));progress.setMax(100);root.addView(progress,new LinearLayout.LayoutParams(-1,dp(2)));
+        errorBanner=new TextView(this);errorBanner.setTextSize(12);errorBanner.setTextColor(BrowserPalette.ERROR);errorBanner.setPadding(dp(12),dp(8),dp(12),dp(8));errorBanner.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);root.addView(errorBanner);
         content=new FrameLayout(this);content.setId(R.id.web_content);root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
         FrameLayout stage=new FrameLayout(this);stage.addView(root,new FrameLayout.LayoutParams(-1,-1));
         fullscreenHost=new FrameLayout(this);fullscreenHost.setId(R.id.fullscreen_content);fullscreenHost.setBackgroundColor(Color.BLACK);fullscreenHost.setVisibility(View.GONE);stage.addView(fullscreenHost,new FrameLayout.LayoutParams(-1,-1));setContentView(stage);
@@ -291,7 +291,7 @@ public final class BrowserActivity extends Activity {
         if(destroying||clearInProgress||session.active()==null)return;
         TabSession.Tab active=session.active();Page page=activePage();
         if(!address.hasFocus())address.setText(active.url);
-        address.setTextColor(active.url.regionMatches(true,0,"http:",0,5)?0xff9a342f:INK);
+        address.setTextColor(active.url.regionMatches(true,0,"http:",0,5)?BrowserPalette.ERROR:INK);
         address.setContentDescription("Address or search"+(active.url.regionMatches(true,0,"http:",0,5)?" — not secure":""));
         tabCount.setText(String.valueOf(session.tabs.size()));tabCount.setContentDescription("Manage website tabs ("+session.tabs.size()+")");
         back.setEnabled(page!=null&&!page.crashed&&page.view.canGoBack());
@@ -382,8 +382,8 @@ public final class BrowserActivity extends Activity {
         }).show();
     }
     private void buildFindBar(LinearLayout root){
-        findBar=row();findBar.setId(R.id.find_bar);findBar.setBackgroundColor(0xffeef0ff);findBar.setPadding(dp(8),0,0,0);findBar.setVisibility(View.GONE);
-        findInput=new EditText(this);findInput.setId(R.id.find_input);findInput.setSingleLine(true);findInput.setTextSize(14);findInput.setHint("Find in page");findInput.setContentDescription("Find text in this page");findInput.setImeOptions(EditorInfo.IME_ACTION_SEARCH);findInput.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)});
+        findBar=row();findBar.setId(R.id.find_bar);findBar.setBackgroundColor(BrowserPalette.RAISED);findBar.setPadding(dp(8),0,0,0);findBar.setVisibility(View.GONE);
+        findInput=new EditText(this);findInput.setId(R.id.find_input);findInput.setSingleLine(true);findInput.setTextColor(INK);findInput.setHintTextColor(MUTED);findInput.setTextSize(14);findInput.setHint("Find in page");findInput.setContentDescription("Find text in this page");findInput.setImeOptions(EditorInfo.IME_ACTION_SEARCH);findInput.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)});
         findBar.addView(findInput,new LinearLayout.LayoutParams(0,dp(48),1));
         findCount=new TextView(this);findCount.setId(R.id.find_count);findCount.setTextColor(INK);findCount.setTextSize(11);findCount.setGravity(Gravity.CENTER);findCount.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);findBar.addView(findCount,new LinearLayout.LayoutParams(dp(42),dp(48)));
         findBar.addView(button("↑","Previous match",v->{Page p=activePage();if(p!=null&&!p.crashed)p.view.findNext(false);}),new LinearLayout.LayoutParams(dp(48),dp(48)));

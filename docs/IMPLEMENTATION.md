@@ -126,3 +126,10 @@ User correction: searches must include actual websites, not only Wikipedia.
 - Removed the user-facing limited-coverage banner and embedded environment-key/setup instructions at the user's request. Removed their unused styles.
 - Search providers, coverage flags, source attribution/status, ranking, and empty/error states are unchanged; this is a presentation change, not a claim that full-web search is now connected.
 - Browser regressions assert the warning/setup UI stays absent for missing-key and configured-but-no-web-results responses, while research labels, provenance and domain counts remain visible.
+
+## OLED-first black & white appearance
+
+- Centralized web palette: true #000 canvas/sidebar, neutral raised surfaces, white accents and inverse button/brand/switch details; a #fff secondary theme and System remain available. Removed old late blue token overrides and tinted decoration; status colors and real provider logos stay meaningful.
+- Fresh sessions default to OLED even on a light OS. Existing saved appearance choices remain respected. Early head bootstrap applies saved/default colors before React; theme-color and install/splash colors match. No display-power/battery savings guarantee.
+- Native preview.6 matches OLED via shared palette constants and dark platform dialog theme, including address/Find, overview, settings, icons and system bars. Native chrome remains OLED when hosted Home chooses White; no website recoloring or new bridge. Instrumentation checks actual surface/text colors and captures OLED toolbar/overview/settings.
+- Theme browser regression covers light-OS defaults, saved White reload, System changes, disabled storage, pre-bundle startup colors, logo/thumb inversion and both-theme Home/Spaces/Tools accessibility.
