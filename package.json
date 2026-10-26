@@ -1,0 +1,44 @@
+{
+  "name": "loxiro",
+  "version": "0.8.0",
+  "private": true,
+  "type": "module",
+  "description": "Loxiro — a fast, calm, smart search browser for the web",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build && node scripts/build-sw.mjs && node scripts/stage-output.mjs",
+    "preview": "vite preview --host 0.0.0.0",
+    "typecheck": "tsc --noEmit",
+    "preview:plan": "python3 scripts/generate-preview.py",
+    "test": "vitest run",
+    "test:browser": "node scripts/browser-smoke.mjs",
+    "dev:api": "node --env-file-if-exists=.env.local server/dev.mjs",
+    "test:downloads": "node scripts/download-smoke.mjs",
+    "test:tabs": "node scripts/tabs-smoke.mjs",
+    "test:android-web": "node scripts/android-web-smoke.mjs",
+    "test:research": "node scripts/research-smoke.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.1.1",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/react": "^19.0.3",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^30.1.3",
+    "playwright": "^1.64.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vitest": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

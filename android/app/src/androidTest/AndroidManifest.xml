@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <permission android:name="app.loxiro.browser.test.READ_FIXTURE" android:protectionLevel="signature" />
+    <application>
+        <!-- Instrumentation-only document source. Never included in the browser APK. -->
+        <provider android:name="app.loxiro.browser.FixtureDocumentProvider" android:authorities="app.loxiro.browser.test.files" android:exported="true" android:readPermission="app.loxiro.browser.test.READ_FIXTURE" android:grantUriPermissions="true" />
+    </application>
+</manifest>

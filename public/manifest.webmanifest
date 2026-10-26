@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Loxiro — Search, without the noise",
+  "short_name": "Loxiro",
+  "description": "Fast search, direct downloads, and on-device smart tools. A calmer corner of the internet.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fb",
+  "theme_color": "#5368e8",
+  "icons": [
+    {"src":"/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ],
+  "shortcuts": [
+    {"name":"Smart tools","url":"/#smart","description":"Calculate, convert, and create"},
+    {"name":"Downloads","url":"/#downloads","description":"Your download queue"}
+  ]
+}

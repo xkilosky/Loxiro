@@ -1,1 +1,199 @@
 # Loxiro
+
+**Search, without the noise.** A mobile-first, installable search companion with direct downloads and on-device smart tools.
+
+**Live app:** https://loxiro-preview.vercel.app/
+**Original concept & plan:** https://loxiro-preview.vercel.app/plan.html
+
+## Unified search — broader research coverage
+
+Normal searches produce **one combined feed**, not an engine picker. The server selects relevant sources, searches them in parallel, filters irrelevant specialist matches, deduplicates URLs, fuses ranks with substantive whole-word query relevance and intent priors, and diversifies domains (DOI registrant prefixes count separately). Up to ten unique links show source attribution. “Best” is a relevance heuristic, not a truth guarantee.
+
+**15 keyless adapters (not 15 independent search indexes):** Wikipedia, Wikidata, DuckDuckGo Instant Answers, Crossref, OpenAlex, Europe PMC, Open Library, Internet Archive, Hacker News, Stack Overflow, GitHub repository search, Apple iTunes, MDN Web Docs, ClinicalTrials.gov, and Wikipedia-linked source discovery. Specialists run only when the query matches their subject; unrelated sources stay idle. This is a researched, curated set, **not every free API on the internet**. These sources are not complete web-search indexes, and their free metadata does not mean every linked article, book, or media item is free to access.
+
+Research topics such as solar energy, photosynthesis, astronomy and agriculture now activate scholarly sources even without the word “research”. Natural-question scaffolding is removed for specialist catalogs; whole-word relevance avoids substring matches such as “React” / “reaction”. Basic Spanish topic/question routing is included, but most upstream sources remain English-oriented.
+
+**Reference pages never exceed two results**, even when other sources are unavailable; the feed is not padded with more encyclopedia entries. Soft content diversity keeps scholarly records or community links from monopolizing the first pass when relevant alternatives exist; non-reference results can backfill thin searches. Badges distinguish research papers, clinical registry records, documentation, discussions, projects, books and ordinary websites. Registry records are not proven treatments, and scholarly metadata is not a guarantee of peer review or free full text.
+
+**Article-linked sources** are bounded external links discovered through relevant Wikipedia articles, with a visible discovery trail. They are filtered to selected academic/government/publisher domains, not crawled or independently verified. Their displayed title describes the discovery context, not a fetched page headline. This expands website discovery without pretending to provide a keyless general-web index.
+
+| Optional full-web integration | Server-only variable | Documented free allowance / setup |
+|---|---|---|
+| Tavily | `TAVILY_API_KEY` | 1,000 credits/month; basic search uses 1 credit; free account required |
+| Google via SerpApi | `SERPAPI_API_KEY` | 250 searches/month; free account required |
+| Google via Zenserp | `ZENSERP_API_KEY` | 50 searches/month; free account required |
+| Google via Serper (legacy) | `SERPER_API_KEY` | Trial/paid; additionally requires `LOXIRO_ALLOW_PAID_PROVIDERS=1` |
+| Brave Search (legacy) | `BRAVE_SEARCH_API_KEY` | Recurring $5 credit with paid-overage-capable pricing; additionally requires `LOXIRO_ALLOW_PAID_PROVIDERS=1` |
+
+Plans change; verify current limits before signing up. No accounts, payments, or API keys are provisioned by Loxiro. No paid provider is enabled by default. Providing a key does **not** prove its account is on a free plan; use a free plan, disable auto-upgrades/overages where available, and set provider-side hard limits. Loxiro's in-memory protection does not enforce a monthly billing cap.
+
+To connect a free-tier web API, add its server-only variable in **Vercel → loxiro-preview → Settings → Environment Variables (Production)** and redeploy. Never use a `VITE_` prefix or commit actual credentials. Without a responding full-web integration, coverage remains limited; source statuses and API coverage metadata remain accurate. The results page does not display a coverage-warning or hosting-setup banner. Bing and Perplexity are not aggregation adapters; explicit bangs still navigate externally.
+
+The query planner selects at most **8 sources/search**. Each upstream HTTP request has a **4.2-second deadline** and bounded body size. Successful results (including empty responses) have a **60-second memory-cache TTL**, shared in-flight queries are coalesced, and failures do not discard other sources. Per-source pacing, HTTP Retry-After, GitHub rate resets, Stack Exchange backoff, quota exhaustion, and a two-failure circuit breaker reduce quota waste. Multiple vendors relaying the same Google index count as one ranking vote while retaining attribution. Wikipedia, Wikidata and article-link discovery also share one Wikimedia vote.
+
+For local development run `npm run dev:api` in a second terminal. Optional secrets go in ignored `.env.local` (see `.env.example`). The backend uses Node 22+ and same-origin `/api/search`.
+
+**Scale limitation:** cache, cooldown, circuit breaker and 12-searches/minute/IP limiter apply per warm server instance. They are not global quotas. Configure distributed rate limiting / a platform firewall and provider-side spending controls before public high-volume use. Open Library is intended for low-volume human-facing discovery, not a bulk or high-traffic commercial backend. Provider terms, identification recommendations, and documentation are cataloged in [docs/SEARCH_PROVIDERS.md](docs/SEARCH_PROVIDERS.md).
+
+## Other features
+
+- **Fast search:** one search/address field, local suggestions and history, keyboard navigation, and a unified result feed. Explicit bang shortcuts can open specialized destinations.
+- **Real source attribution:** results are obtained server-side from responding sources after submitting a query. No fabricated or demo results.
+- **Smart routing:** recognizes URLs, questions, code queries, calculations, colors, conversions, and bang shortcuts (`!yt`, `!w`, `!gh`, `!so`, and more).
+- **Smart tools:** safe arithmetic parser (no eval), unit conversion, HEX/RGB/HSL color studio, text counts/transforms/export. They work offline.
+- **Smart Downloads:** verified HTTP byte-range downloads with up to 8, 16, or 32 parts per file (8 by default), size-adaptive part counts, ordered assembly, single-stream fallback, actual bytes/speed, 1–4 queued files at a time, a shared 32-request budget, cancel/retry, and persisted history. Includes a same-origin sample file to try. Browser connection limits still apply.
+- **Tab workspace:** up to 30 local tabs for searches and Loxiro pages, independent search drafts, pin/unpin, duplicate, reorder, close/reopen (last 10), searchable mobile overview, confirmed bulk close, and automatic local session restoration. Website links still open externally.
+- **Spaces:** create colored collections, save links, filter, delete, and copy. Deleting a space moves its links to Reading list.
+- **Settings:** light/dark/system theme, reduced motion, recent-history toggle, new-tab preference, JSON data export **and restore**, clear data.
+- **PWA:** manifest, generated icons, offline app shell, browser installation instructions and native install prompt where supported.
+- Responsive desktop sidebar and mobile bottom navigation; keyboard shortcuts, focus-trapped dialogs, accessible status messages, reduced-motion support.
+
+## Important boundaries
+
+The hosted version is a **web search companion**, not a new Chromium rendering engine. It cannot render arbitrary sites under its own browser controls or manage Chrome/Safari tabs. A separate experimental **Android WebView browser** now lives in `android/`; its native controls stay visible above website pages. It uses the installed Android System WebView, not a custom rendering engine, and does not claim full Chrome feature parity.
+
+Unified searches call a serverless aggregation endpoint; queries are shared with its connected providers, which have their own privacy policies. HTTP responses are private/no-store. Public result snippets are cached only in server memory with a 60-second TTL and hashed query keys; the search server does not write history to disk. Open and recently closed tabs, drafts, and optional recent searches are stored locally in your browser. Hosting-provider request logs may include queries. There is no analytics, account system, or AI model inference. “Smart” means deterministic on-device tools and routing, not generated AI answers.
+
+Web-app download speed depends on your network and source server. No acceleration guarantee. In-app web sources must allow CORS; blocked or very large sources can be opened directly in your browser. Transfers are limited to **200 MB per file**, buffered in memory, and require the app to stay open. There is no resumable/background-transfer claim. Interrupted transfers become cancelled after reload. Browser downloads remain on disk when local app data is cleared.
+
+Data is stored in versioned `localStorage` keys (`loxiro:v2:*`). Browser storage can be cleared or unavailable; keep an exported backup of important saved links. Export and restore are both supported. A restore is sanitized and confirmed before anything is written, and it cannot inject a non-http(s) link into your Spaces.
+
+## Development
+
+```sh
+npm ci
+npm run dev             # Vite, 0.0.0.0:5173
+npm run dev:api         # Second terminal: search backend on port 8787
+npm run typecheck
+npm test                # unit/hook/backend tests
+npm run build           # dist/, service worker, Vercel output
+npm run preview         # production preview, 0.0.0.0:4173
+```
+
+### Browser checks
+
+In a second terminal, with `npm run preview` running:
+
+```sh
+npx playwright install chromium
+npm run test:browser
+```
+
+Optionally set `LOXIRO_BASE_URL` (default `http://localhost:4173`) or `CHROMIUM_EXECUTABLE_PATH` for an existing Chromium binary. Browser smoke tests use a **mock unified-search API response** for repeatable rendering tests; live third-party search quality/availability is not simulated as a verified result.
+
+The smoke suite checks unified search → attribution → save, reload persistence, creating a space, all four tools, a real streamed same-origin file download, theme persistence, automated accessibility on Home/Settings, responsive overflow (360/390/768/1440), runtime exceptions, service worker installation, offline reload, and offline calculation.
+
+Additional manual automation during development checked all five main screens in both themes with axe WCAG A/AA rules (no detected violations). This is not a complete accessibility audit. Lighthouse performance scores have not been measured.
+
+## Stack & structure
+
+React 19 · TypeScript · Vite 6 · Node serverless aggregation · Lucide · locally bundled Inter variable font · CSS variable design system · Vitest · Testing Library · Playwright + axe.
+
+```
+src/App.tsx                   Screens, routing, app state, UI
+src/styles/app.css            Responsive design system and both themes
+src/data/                     Engines, bangs, suggestions
+src/lib/smart.ts              Safe parser, conversions, color/intent logic
+src/lib/storage.ts            Persistence, URL checks, file helpers
+src/lib/tabs.ts               Bounded tab reducer, route serialization, session validation
+src/hooks/useTabs.ts          Local tab workspace persistence
+src/hooks/useUnifiedSearch.ts Tab-isolated search, cancellation, short-lived result cache
+src/components/TabWorkspace.tsx Tab strip and searchable management dialog
+src/hooks/useDownloads.ts     Queue, cancellation, shared request budget
+src/lib/download.ts           Verified parallel byte-range transfer engine
+server/search.mjs             HTTP boundary and unified aggregation
+server/providers.mjs          17 API adapters (12 keyless, 3 free-key, 2 paid opt-ins)
+server/planner.mjs            Relevant source routing and fan-out cap
+server/runtime.mjs            Bounded TTL cache, in-flight dedup, pacing/cooldowns
+server/transport.mjs          Bounded JSON transport, deadline, retry hints
+server/rank.mjs               Canonical URLs, deduplication, rank fusion
+scripts/build-sw.mjs          Versioned offline app shell
+scripts/stage-output.mjs      Vercel Build Output API v3
+scripts/browser-smoke.mjs     Reproducible end-to-end smoke checks
+public/plan.html              Original standalone planning preview
+public/manifest.webmanifest   PWA metadata
+```
+
+## Deployment
+
+The existing `loxiro-preview` Vercel project serves the app and search function. `npm run build` emits both generic `dist/` files and `.vercel/output/static/`. Optional server-only API credentials enable the full-web providers (see above). All production assets and font files are self-hosted. External requests happen on explicit search/navigation/download actions, not when loading Home. The app contains a serverless backend for search; no database is used.
+
+The sandbox's raw `*.e2b.app` URL may require platform traffic authentication. Prefer the stable Vercel app link above.
+
+## Planning archive
+
+- [Original project plan](docs/PROJECT_PLAN.md) — historical planning draft, not the current feature status.
+- [Editable concept board](docs/assets/loxiro-concept.svg)
+- [Concept PNG](docs/assets/loxiro-concept.png)
+
+The initial plan proposed demo results. The implementation now uses **server-side unified search with honest source coverage**. Spaces are implemented rather than left as a teaser.
+
+### Website destinations (v0.4.1)
+
+The combined feed now **leads with an available website match**, not an encyclopedia page. Website/reference badges and counts make the distinction visible. Wikipedia and Wikidata record pages are supporting references: at most two enter the diversity pass before other available website destinations; reference-only searches are still displayed honestly rather than filled with made-up URLs.
+
+For named organizations, products and people, the Wikidata adapter also batches a lookup of [P856 website statements](https://www.wikidata.org/wiki/Property:P856) and returns direct website links. Preferred statements win over normal statements; deprecated/ended statements and unsafe/local addresses are excluded. These are **crowdsourced directory listings, not independently verified official sites or general-web crawling**. If enrichment fails, the original reference results survive. No guessed domains or static popular-site seed list is used. The enrichment adds at most one HTTP request: the planner still caps source adapters at eight (up to nine upstream requests with this enrichment); each fetch has its own 4.2-second deadline.
+
+The app shows a clear **“Enable broader website search”** setup panel when no full-web service is connected. Add one of `TAVILY_API_KEY`, `SERPAPI_API_KEY`, or `ZENSERP_API_KEY` in the linked secure environment settings and redeploy; never paste keys into chat. The directory feature does not remove that requirement for general-web queries. No connection is silently created and no billing is enabled.
+
+### Website logos (v0.4.2)
+
+Search cards show each destination's favicon instead of numbered squares. Icons load lazily from DuckDuckGo's icon service using only the destination hostname, with a no-referrer policy; paths, search text and API keys are not sent. This third-party image service can see the requested domain and network metadata. A local globe remains visible while loading and replaces unavailable/blocked icons. The icon area has fixed dimensions to avoid layout shifts and a white backing for logo legibility in either theme. Icons are decorative; the adjacent domain and result title remain the accessible identification. There are no remote icon requests on Home.
+
+
+### Smart Download (v0.5)
+
+Open **Downloads → Parts per file** and select **8** (recommended), **16**, **32**, or **1** (single stream). The choice also lives in Settings and persists locally. Changes affect new transfers, not parts already running.
+
+- A `GET Range: bytes=0-0` probe checks actual support, known size, and an exposed **strong ETag**. A server that ignores Range and returns `200` is streamed directly without fetching the same whole file twice.
+- Eligible files use `min(selected limit, available queue budget, floor(size / 1 MiB))` balanced, adjacent ranges. Files under 2 MiB use one stream. There are at most 32 reserved request slots across the queue; unused slots are released after detection. This is a request/worker budget, **not 32 guaranteed TCP connections**: browser per-origin limits and HTTP/2/3 scheduling control network parallelism. A controlled Chromium HTTP/1.1 test observed 6 overlapping requests even with 32 parts.
+- Every part sends `If-Range` with the probe's strong ETag. Only exact `206` responses with the expected start/end/total, matching strong ETag and resolved URL, no visible content encoding, and exact byte count are assembled. Parts are placed in original byte order, regardless of completion order. If any part fails these checks, siblings are aborted, partial buffers discarded, and **one fresh normal GET** is attempted. Cancellation never triggers fallback or saving. No automatic part retry loop or persistent resume is claimed.
+- Cross-origin sources must allow the app origin (or `*` for these credential-free requests), `GET` and `OPTIONS`, and request headers `Range, If-Range`; expose response headers `Content-Range, ETag` (and `Content-Encoding` when present). Sources without a strong/exposed ETag or usable ranges fall back to one stream. Sources that block CORS entirely still need **Open source**. `Accept-Ranges` alone is not trusted. Authentication cookies are never sent, and this does not bypass DRM, access controls, or CORS.
+- Files are still buffered in memory, capped at **200 MiB (shown as 200 MB in the interface) per file**; simultaneous files can use more memory. Keep Loxiro open. No disk-streaming, background completion, pause/resume, or guaranteed speed multiplier is promised. More parts can be slower, especially on small files or saturated connections. No general internet acceleration benchmark has been performed.
+
+`npm test` includes range partitioning, 8/16/32-way concurrent requests, ordered SHA-256 comparisons, validator/range errors, truncation/overflow, fallback, limits, cancellation, retry, and queue-budget tests. `npm run test:downloads` uses a real local cross-origin HTTP server and browser, including CORS preflights and SHA-256 checks of **saved files**, not mocked fetch responses. It also checks failed-source fallback, active cancellation, honest CORS failure, preference persistence, light/dark accessibility, and responsive layout. This controlled fixture establishes correctness, **not real-world speed gains or arbitrary source compatibility**.
+
+
+### Tab management (v0.6)
+
+Use **+** in the tab strip to create a Loxiro tab. The **stack icon / tab count** opens the searchable tab overview on desktop and mobile.
+
+- Keep up to **30 open tabs** with independent submitted searches, search drafts, current Loxiro page, and search engine routing context. Switch without overwriting another tab. Pin important tabs, duplicate a tab, reorder within the pinned or unpinned group using left/right controls, close individual tabs, and reopen the last **10** closed tabs.
+- Pinned tabs stay first and are protected from **confirmed bulk closing**. They can still be closed explicitly. Closing the final tab creates a blank one instead of closing the app. Reopening restores the route/draft/pin, not an external browser window.
+- Sessions restore from `loxiro:v2:tabs` on this device. A matching explicit hash route retains an unsent draft on reload; direct links navigate the relevant/current workspace tab without erasing other tabs. URL hashes include the tab ID so browser back/forward can select an existing referenced tab. This is one browser history, not a separate full navigation stack for each workspace tab.
+- Tabs **save their queries and drafts locally even when recent-search history is disabled**. JSON export includes open/closed tab sessions. **Clear all data** deletes both. Storage-disabled contexts keep usable in-memory tabs without promising restoration. There is no account, cross-device sync, or cross-window conflict resolution; windows share the local storage key, so the latest persisted window wins on a later reload.
+- Only the active search is fetched. Switching cancels pending work; late responses cannot replace another tab's results. Fresh responses can be reused from a bounded **30-entry / 60-second in-memory cache**, and manual retries bypass it. Results themselves are not stored in the tab session or restored offline as a complete result archive.
+- Downloads remain app-wide and continue when their originating workspace tab closes, while Loxiro remains open. Smart-tool input state, Spaces filters, settings, scroll position, and download tasks are shared app state, **not independent browser documents per tab**. External sites still open in your browser according to Settings. Loxiro cannot inspect, embed arbitrary sites in, or control actual Chrome/Safari tabs.
+
+Keyboard controls: **Alt+Shift+N** new tab; **Alt+Shift+W** close current Loxiro tab; **Alt+Shift+T** reopen. With a tab title focused, **Left/Right/Home/End** switch tabs and **Delete** closes it. These do not replace native Ctrl/Cmd+T/W browser shortcuts; OS/browser interception can still apply. Tab actions are also available as buttons. Shortcuts do not operate behind an open dialog.
+
+Validation: `npm test` includes tab reducer/session-sanitization/persistence and isolated-search race/cache tests. `npm run test:tabs` adds end-to-end tab operations, local session/draft restoration, browser back/forward, keyboard/focus behavior, confirmed bulk closing, 30-tab mobile layout/cap, clear-all, closed-history bounds, website-link scope, download continuation after tab closure, both-theme axe checks, and 360/390/768/1440 responsive checks. Search API fixtures make these UI tests repeatable; they are not live-provider quality tests. The existing app and real cross-origin download suites still pass.
+
+
+### Android website browser preview (v0.7)
+
+The web workspace could not keep its tab switcher visible after handing a website to Chrome/Safari. The separate **installed Android app** fixes that architectural boundary: native address/navigation/tab controls surround each website WebView, rather than being part of the website DOM.
+
+- **Android 10+**, 12 website tabs, pin/duplicate/reorder/close/reopen (10 closed tabs), native tab search, back/forward/reload, and private session URL/title/pin restoration. At most 3 page views stay resident; older views reload their URL. The hosted web workspace remains unchanged for ordinary browsers.
+- No JavaScript-to-native bridge is exposed to websites. Unsafe URL schemes and credential-bearing navigation are blocked, SSL errors are cancelled, file/content access and mixed content are off, user activation is required for popup tabs, and native chrome displays the navigated URL rather than trusting the page title.
+- This is an early WebView preview: some sign-ins, live camera/mic capture and geolocation remain unsupported. Native file/photo selection, full-screen video, Find in Page, share/open links and user-approved default-browser setup are implemented in preview.5. Native direct HTTP(S) downloads use Android Download Manager after confirmation, **not** the web-only 8–32-part downloader. Blob/data exports are unsupported and known web export controls are disabled in the shell. Native Clear browser data and web-only Clear data have separate, disclosed scopes. See [android/README.md](android/README.md) for installation, limits, signing, storage and build details.
+
+**Verified native build:** [Android workflow run 40166555207](https://github.com/xkilosky/Loxiro/actions/runs/40166555207) passed APK assembly, JVM tests, Android lint, and real Android 15 emulator tests against local website fixtures, including a trusted-tap popup, website-tab switching under persistent chrome, unsafe address rejection, and Activity recreation. The Android source was built from commit `5cac2b4d81d0149678f8434b515c04708308e3bd`; subsequent hosted-page changes do not alter that APK's native source.
+
+**Installable debug preview:** [Download the Android APK artifact (ZIP)](https://github.com/xkilosky/Loxiro/actions/runs/40166555207/artifacts/12588233381). Extract `app-debug.apk` and open it on Android 10+. GitHub sign-in may be required; the artifact is retained for 14 days. This is a debug preview, not a signed Play Store release. The sandbox cannot download GitHub's Azure-hosted artifact/log payloads, so the binary is delivered through GitHub rather than copied into this repository. The successful workflow and artifact metadata were verified through the GitHub API; no physical-device or arbitrary-website compatibility claim is made.
+
+Web validation: **198 tests / 11 files**, typecheck/build, existing browser/offline/tab/download suites, and the added `npm run test:android-web` passed. The latter tests the native UA presentation hint: no duplicate web tab strip, no hidden workspace-tab shortcuts, honest system-download/export/clear-data UI, popup handoff, mobile layout/axe, and unchanged behavior for ordinary Android browser UAs. It is not a substitute for the separate emulator tests.
+
+### Backup restore (v0.8)
+
+Export alone was only half a data story: a backup you cannot put back is not a backup. **Settings → Your data → Bring it back** restores a `loxiro-backup.json` produced by the Export button.
+
+- **Two modes, chosen before you pick a file.** *Merge* (default) only adds items you do not already have and never removes anything. *Replace* swaps the sections the file contains and drops the previous contents of those sections; sections the file does **not** contain are left untouched.
+- **Confirm before writing.** Choosing a file opens a dialog listing exactly what the file holds (links, recent searches, spaces, open/closed tabs, settings) plus its export timestamp. Nothing is written until you confirm, and Cancel changes nothing.
+- **Sanitized, not trusted.** Saved links pass the same `http`/`https`-only check as manual saves, so `javascript:`, `data:` and `file:` URLs cannot be restored. Unknown setting keys, invalid themes, engines, concurrency and part counts are ignored; tab entries are revalidated with the tab session sanitizer. A link whose space no longer exists moves to Reading list.
+- **One entry per thing.** Saved links dedupe by URL, recents by query, spaces by id then name, tabs by id — the same rules the app already enforces when you add items by hand.
+- **Bounded.** A restore is capped at a 5 MB file, 1000 saved links, 40 recents, 50 spaces, 30 open tabs and 10 closed tabs. Duplicate and over-limit items are counted and named in the result toast instead of silently dropped.
+
+Restore reads a local file through the browser's file picker; nothing is uploaded. In the Android shell the same control uses Android's native document picker, while blob **export** stays web-only there. Download history is not part of a backup.
+
+**Validation:** 34 added tests — 28 unit tests over parsing, sanitizing, merge, replace and caps, plus 6 jsdom tests that drive the real Settings UI (file input → confirmation → merge/replace → persisted `localStorage`, and the broken-file and not-a-backup rejections). `npm test` is **261 tests / 15 files**; typecheck and production build pass. The Playwright suites (`test:browser`, `test:tabs`, `test:downloads`, `test:android-web`, `test:research`) were **not** re-run for this change: this sandbox cannot download a Chromium build, so those remain verified at their last recorded run.

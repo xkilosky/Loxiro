@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output (future Vite app / static preview)
+dist/
+.vite/
+.vercel/
+*.local
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+
+# Server-only search credentials
+.env
+.env.*
+!.env.example
+
+# Android local SDK, build products and signing material
+android/.gradle/
+android/**/build/
+android/local.properties
+*.apk
+*.aab
+*.jks
+*.keystore

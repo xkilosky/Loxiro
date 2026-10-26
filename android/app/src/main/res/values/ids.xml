@@ -1,0 +1,19 @@
+<resources>
+    <item name="address" type="id" />
+    <item name="tab_count" type="id" />
+    <item name="new_tab" type="id" />
+    <item name="browser_toolbar" type="id" />
+    <item name="web_content" type="id" />
+    <item name="tab_overview" type="id" />
+    <item name="tab_card_grid" type="id" />
+    <item name="tab_filter_all" type="id" />
+    <item name="tab_filter_pinned" type="id" />
+    <item name="tab_filter_closed" type="id" />
+    <item name="browser_settings" type="id" />
+    <item name="website_text_zoom" type="id" />
+    <item name="website_text_zoom_value" type="id" />
+    <item name="fullscreen_content" type="id" />
+    <item name="find_bar" type="id" />
+    <item name="find_input" type="id" />
+    <item name="find_count" type="id" />
+</resources>
