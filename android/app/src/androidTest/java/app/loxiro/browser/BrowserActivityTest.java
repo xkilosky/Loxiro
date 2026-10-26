@@ -79,9 +79,9 @@ public class BrowserActivityTest {
         try(Socket s=socket){
             BufferedReader reader=new BufferedReader(new InputStreamReader(s.getInputStream(),StandardCharsets.UTF_8));String request=reader.readLine();
             if(request==null)return;String line;while((line=reader.readLine())!=null&&!line.isEmpty()){}
-            boolean second=request.contains(" /two ");
-            String html="<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><title>"+(second?"Second fixture":"First fixture")+"</title><style>body{margin:8px}a{display:block;height:120px;background:#eef0ff}</style><a href='/two' target='_blank'>Open another website</a><p>Real website content cannot remove Android browser chrome.</p>";
-            byte[] body=html.getBytes(StandardCharsets.UTF_8);OutputStream out=s.getOutputStream();out.write(("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: "+body.length+"\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));out.write(body);out.flush();
+            boolean second=request.contains(" /two "),failure=request.contains(" /error ");
+            String html="<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><title>"+(failure?"Page error":second?"Second fixture":"First fixture")+"</title><style>body{margin:8px}a{display:block;height:120px;background:#eef0ff}</style><a href='/two' target='_blank'>Open another website</a><p>Real website content cannot remove Android browser chrome.</p>";
+            byte[] body=html.getBytes(StandardCharsets.UTF_8);OutputStream out=s.getOutputStream();out.write(("HTTP/1.1 "+(failure?"503 Service Unavailable":"200 OK")+"\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: "+body.length+"\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));out.write(body);out.flush();
         }catch(Exception ignored){}
     }
     private void awaitTitle(String title) {
@@ -253,6 +253,10 @@ public class BrowserActivityTest {
         enterWebsiteFullscreen();
         onView(isAssignableFrom(WebView.class)).perform(new GeneralClickAction(Tap.SINGLE,view->{int[] p=new int[2];view.getLocationOnScreen(p);float d=view.getResources().getDisplayMetrics().density;return new float[]{p[0]+80*d,p[1]+60*d};},Press.FINGER));
         awaitTitle("Second fixture");assertWebsiteFullscreen();scenario.onActivity(a->assertEquals(2,a.nativeTabCount()));
+    }
+    @Test public void failedPageLeavesFullscreenForVisibleRecoveryControls(){
+        enterWebsiteFullscreen();scenario.onActivity(a->((WebView)((android.widget.FrameLayout)a.findViewById(R.id.web_content)).getChildAt(0)).loadUrl(origin+"/error"));awaitTitle("Page error");
+        onView(withId(R.id.address)).check(matches(isDisplayed()));onView(withText("Website returned HTTP 503.")).check(matches(isDisplayed()));scenario.onActivity(a->assertFalse(a.isWebsiteFullscreen()));
     }
     @Test public void newTabFromFullscreenRestoresTheAddressBar(){
         enterWebsiteFullscreen();onView(withId(R.id.fullscreen_tabs)).perform(click());onView(withId(R.id.new_tab)).perform(click());awaitTitle("First fixture");

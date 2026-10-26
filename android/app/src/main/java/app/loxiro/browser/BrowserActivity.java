@@ -210,7 +210,7 @@ public final class BrowserActivity extends Activity {
         if(load&&home.equals(url))setWebsiteFullscreen(false);
         if(old!=null&&!old.crashed)old.view.onPause();
         Page page=createPage(tab);attach(page);if(load)page.view.loadUrl(url);
-        trimPages();store.save(session);renderChrome();return tab;
+        trimPages();store.save(session);renderChrome();if(websiteFullscreen&&load)announceWebsiteFullscreen(tab.url);return tab;
     }
     private void select(String id) {
         if(clearInProgress)return;
@@ -225,7 +225,7 @@ public final class BrowserActivity extends Activity {
         if(page!=null)pages.put(id,page);
         if(page==null){page=createPage(session.active());page.view.loadUrl(session.active().url);}
         attach(page);page.view.onResume();address.clearFocus();trimPages();store.save(session);renderChrome();
-        if(websiteFullscreen&&switching)announceWebsiteFullscreen(session.active().url);
+        if(websiteFullscreen)announceWebsiteFullscreen(session.active().url);
     }
     private void attach(Page page) {
         content.removeAllViews();

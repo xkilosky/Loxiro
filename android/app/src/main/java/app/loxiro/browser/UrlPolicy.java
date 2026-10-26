@@ -10,7 +10,7 @@ final class UrlPolicy {
     /** Hosted Home/search needs the native address bar, unlike an external website. */
     static boolean isHomeSurface(String url){
         if(!isWebUrl(url))return false;
-        try{URI u=new URI(url),home=new URI(HOME);return home.getScheme().equalsIgnoreCase(u.getScheme())&&home.getHost().equalsIgnoreCase(u.getHost())&&home.getPort()==u.getPort()&&(u.getPath()==null||u.getPath().isEmpty()||"/".equals(u.getPath()));}catch(Exception invalid){return false;}
+        try{URI u=new URI(url),home=new URI(HOME);return home.getScheme().equalsIgnoreCase(u.getScheme())&&home.getHost().equalsIgnoreCase(u.getHost())&&(u.getPort()==-1||u.getPort()==443)&&(u.getPath()==null||u.getPath().isEmpty()||"/".equals(u.getPath()));}catch(Exception invalid){return false;}
     }
     static boolean isWebUrl(String value) {
         if (value == null || value.length() > 4096) return false;
