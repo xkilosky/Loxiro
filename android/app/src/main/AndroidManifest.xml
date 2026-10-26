@@ -1,14 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <queries>
+        <intent><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https"/></intent>
+        <intent><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="http"/></intent>
+    </queries>
     <application android:label="Loxiro Preview" android:theme="@style/AppTheme"
         android:icon="@drawable/ic_loxiro" android:allowBackup="false"
         android:usesCleartextTraffic="true" android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true">
-        <activity android:name=".BrowserActivity" android:exported="true" android:windowSoftInputMode="adjustNothing">
+        <activity android:name=".BrowserActivity" android:exported="true" android:launchMode="singleTask" android:windowSoftInputMode="adjustNothing">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="http"/><data android:scheme="https"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
             </intent-filter>
         </activity>
     </application>

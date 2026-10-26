@@ -4,6 +4,10 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
+import android.app.role.RoleManager;
+import android.webkit.ValueCallback;
+import android.text.TextWatcher;
+import android.text.Editable;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Bitmap;
@@ -63,7 +67,15 @@ public final class BrowserActivity extends Activity {
     private BrowserSettings preferences;
     private BrowserSettingsDialog settingsDialog;
     private String home=UrlPolicy.HOME;
-    private FrameLayout content;
+    private FrameLayout content,fullscreenHost;
+    private LinearLayout browserChrome,findBar;
+    private EditText findInput;
+    private TextView findCount;
+    private String findOwner,findQuery="",fullscreenOwner;
+    private Runnable pendingFind;
+    private WebChromeClient.CustomViewCallback fullscreenCallback;
+    private int previousSystemUi,previousBarsBehavior;
+    private UploadPicker uploads;
     private EditText address;
     private TextView errorBanner;
     private Button tabCount, back;
@@ -89,11 +101,25 @@ public final class BrowserActivity extends Activity {
             Uri u=Uri.parse(override);
             if("127.0.0.1".equals(u.getHost()) || "localhost".equals(u.getHost()))home=override;
         }
+        uploads=new UploadPicker(this,saved!=null&&saved.getBoolean("upload_pending",false));
         settingsStore=new SettingsStore(this);preferences=settingsStore.load();
         store=new SessionStore(this);session=store.restore(home);buildChrome();applyPreferences();
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
             android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::handleBack);
         select(session.activeId);
+        if(saved==null)handleExternalIntent(getIntent());
+    }
+    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);handleExternalIntent(intent);}
+    private void handleExternalIntent(Intent intent){
+        String url=null;boolean incoming=false;
+        try{
+            if(Intent.ACTION_VIEW.equals(intent.getAction())){incoming=true;String candidate=intent.getDataString();if(UrlPolicy.isWebUrl(candidate))url=candidate;}
+            else if(Intent.ACTION_SEND.equals(intent.getAction())){incoming=true;if("text/plain".equals(intent.getType()))url=UrlPolicy.sharedLink(intent.getCharSequenceExtra(Intent.EXTRA_TEXT)==null?null:intent.getCharSequenceExtra(Intent.EXTRA_TEXT).toString());}
+        }catch(RuntimeException invalid){toast("Could not read the shared link.");return;}
+        if(!incoming)return;
+        if(url==null){toast("Share an HTTP or HTTPS website link. Other schemes and credentials are blocked.");return;}
+        if(clearInProgress){toast("Please wait for browser data to finish clearing.");return;}
+        dismissOverview();if(settingsDialog!=null)settingsDialog.dismiss();addTab(url,true);
     }
     private int dp(int value) { return Math.round(value*getResources().getDisplayMetrics().density); }
     private LinearLayout row() { LinearLayout v=new LinearLayout(this);v.setOrientation(LinearLayout.HORIZONTAL);v.setGravity(Gravity.CENTER_VERTICAL);return v; }
@@ -106,7 +132,7 @@ public final class BrowserActivity extends Activity {
         GradientDrawable shape=new GradientDrawable();shape.setColor(color);shape.setCornerRadius(dp(radius));return shape;
     }
     private void buildChrome() {
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(BG);root.setFocusableInTouchMode(true);root.requestFocus();
+        LinearLayout root=new LinearLayout(this);browserChrome=root;root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(BG);root.setFocusableInTouchMode(true);root.requestFocus();
         if(Build.VERSION.SDK_INT>=30) {
             getWindow().setDecorFitsSystemWindows(false);
             root.setOnApplyWindowInsetsListener((v,insets)->{
@@ -139,9 +165,12 @@ public final class BrowserActivity extends Activity {
         navigation.addView(tabCount,new LinearLayout.LayoutParams(dp(48),dp(48)));
         navigation.addView(button("⋮","Browser options",v->showOptions()),new LinearLayout.LayoutParams(dp(48),dp(48)));
         root.addView(navigation,new LinearLayout.LayoutParams(-1,dp(56)));
+        buildFindBar(root);
         progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(100);root.addView(progress,new LinearLayout.LayoutParams(-1,dp(2)));
         errorBanner=new TextView(this);errorBanner.setTextSize(12);errorBanner.setTextColor(0xff9a342f);errorBanner.setPadding(dp(12),dp(8),dp(12),dp(8));errorBanner.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);root.addView(errorBanner);
-        content=new FrameLayout(this);content.setId(R.id.web_content);root.addView(content,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
+        content=new FrameLayout(this);content.setId(R.id.web_content);root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
+        FrameLayout stage=new FrameLayout(this);stage.addView(root,new FrameLayout.LayoutParams(-1,-1));
+        fullscreenHost=new FrameLayout(this);fullscreenHost.setId(R.id.fullscreen_content);fullscreenHost.setBackgroundColor(Color.BLACK);fullscreenHost.setVisibility(View.GONE);stage.addView(fullscreenHost,new FrameLayout.LayoutParams(-1,-1));setContentView(stage);
     }
     private void navigateInput() {
         String url=UrlPolicy.resolve(address.getText().toString());
@@ -151,13 +180,14 @@ public final class BrowserActivity extends Activity {
     private void navigate(String url) {
         if(clearInProgress || !UrlPolicy.isWebUrl(url))return;
         TabSession.Tab tab=session.active();if(tab==null)return;
+        leavePageTools();
         address.clearFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(address.getWindowToken(),0);
         Page p=activePage();if(p==null || p.crashed){destroyPage(tab.id);p=createPage(tab);attach(p);}
         previews.remove(tab.id);tab.url=url;tab.title="";p.error="";p.view.loadUrl(url);store.save(session);renderChrome();
     }
     private TabSession.Tab addTab(String url,boolean load) {
         if(clearInProgress)return null;
-        capturePreview();
+        leavePageTools();capturePreview();
         Page old=activePage();
         TabSession.Tab tab=session.add(url);
         if(tab==null){toast("Maximum "+TabSession.MAX_TABS+" website tabs. Close one first.");return null;}
@@ -167,9 +197,11 @@ public final class BrowserActivity extends Activity {
     }
     private void select(String id) {
         if(clearInProgress)return;
+        leavePageTools();
         if(!id.equals(session.activeId))capturePreview();
         for(Page background:pages.values())if(!background.id.equals(id)&&!background.crashed)background.view.onPause();
         if(!session.select(id))return;
+        uploads.cancelOwner(id);if(id.equals(fullscreenOwner))exitFullscreen();if(id.equals(findOwner))closeFind();
         Page page=pages.remove(id);
         if(page!=null)pages.put(id,page);
         if(page==null){page=createPage(session.active());page.view.loadUrl(session.active().url);}
@@ -199,6 +231,7 @@ public final class BrowserActivity extends Activity {
             }
             @Override public void onPageStarted(WebView web,String url,android.graphics.Bitmap favicon) {
                 if(!alive(page))return;
+                uploads.cancelOwner(page.id);if(page.id.equals(session.activeId)){exitFullscreen();closeFind();}
                 TabSession.Tab t=session.find(page.id);if(UrlPolicy.isWebUrl(url)||"about:blank".equals(url)){t.url=url;t.title="";}
                 previews.remove(page.id);page.loading=true;page.error="";page.progress=0;changed(page);
             }
@@ -220,6 +253,7 @@ public final class BrowserActivity extends Activity {
             }
             @Override public boolean onRenderProcessGone(WebView web,RenderProcessGoneDetail detail) {
                 if(!alive(page))return true;
+                uploads.cancelOwner(page.id);if(page.id.equals(fullscreenOwner))exitFullscreen();if(page.id.equals(findOwner))closeFind();
                 previews.remove(page.id);page.crashed=true;page.loading=false;page.error="Page process stopped. Reload to restore this URL.";
                 if(web.getParent() instanceof ViewGroup)((ViewGroup)web.getParent()).removeView(web);web.destroy();
                 if(page.id.equals(session.activeId)){attach(page);renderChrome();}return true;
@@ -240,7 +274,12 @@ public final class BrowserActivity extends Activity {
                 ((WebView.WebViewTransport)result.obj).setWebView(pages.get(child.id).view);result.sendToTarget();return true;
             }
             @Override public void onPermissionRequest(PermissionRequest request){request.deny();}
-            @Override public void onShowCustomView(View view,CustomViewCallback callback){callback.onCustomViewHidden();toast("Fullscreen is unavailable in this preview; browser controls stay visible.");}
+            @Override public boolean onShowFileChooser(WebView web,ValueCallback<Uri[]> result,FileChooserParams params){
+                if(!alive(page)||!page.id.equals(session.activeId)||clearInProgress){result.onReceiveValue(null);return true;}
+                return uploads.show(page.id,result,params);
+            }
+            @Override public void onShowCustomView(View custom,CustomViewCallback callback){if(alive(page)&&page.id.equals(session.activeId))enterFullscreen(page.id,custom,callback);else callback.onCustomViewHidden();}
+            @Override public void onHideCustomView(){if(page.id.equals(fullscreenOwner))exitFullscreen();}
         });
         view.setDownloadListener((url,agent,disposition,mime,length)->confirmDownload(url,disposition,mime));
         return page;
@@ -268,7 +307,7 @@ public final class BrowserActivity extends Activity {
         Page page=activePage();if(page==null||page.crashed){destroyPage(tab.id);page=createPage(tab);attach(page);page.view.loadUrl(tab.url);}else{page.error="";page.view.reload();}
     }
     private void handlePageBack(){Page page=activePage();if(page!=null&&!page.crashed&&page.view.canGoBack())page.view.goBack();}
-    private void handleBack(){Page page=activePage();if(page!=null&&!page.crashed&&page.view.canGoBack())page.view.goBack();else if(session.tabs.size()>1)closeTab(session.activeId);else finish();}
+    private void handleBack(){if(fullscreenCallback!=null){exitFullscreen();return;}if(findBar.getVisibility()==View.VISIBLE){closeFind();return;}Page page=activePage();if(page!=null&&!page.crashed&&page.view.canGoBack())page.view.goBack();else if(session.tabs.size()>1)closeTab(session.activeId);else finish();}
     @SuppressWarnings("deprecation") @Override public void onBackPressed(){handleBack();}
     private void destroyPage(String id) {
         Page page=pages.remove(id);if(page==null||page.crashed)return;
@@ -321,24 +360,113 @@ public final class BrowserActivity extends Activity {
         }).show();
     }
     private void showOptions() {
-        new AlertDialog.Builder(this).setTitle("Loxiro Android Preview").setItems(new String[]{"Browser settings","Website tabs","Reopen last closed tab","Open page in external browser","Android downloads","Close unpinned tabs","Clear browser data","About this preview","Home","Forward","Reload / stop","New tab"},(d,choice)->{
+        new AlertDialog.Builder(this).setTitle("Loxiro Android Preview").setItems(new String[]{"Browser settings","Find in page","Share page","Default browser","Website tabs","Reopen last closed tab","Open page in external browser","Android downloads","Close unpinned tabs","Clear browser data","About this preview","Home","Forward","Reload / stop","New tab"},(d,choice)->{
             if(choice==0){showSettings();return;}
-            int which=choice-1;
+            if(choice==1){showFind();return;}
+            if(choice==2){sharePage();return;}
+            if(choice==3){requestDefaultBrowser();return;}
+            int which=choice-4;
             if(which==7)navigate(home);
             if(which==8){Page p=activePage();if(p!=null&&!p.crashed&&p.view.canGoForward())p.view.goForward();}
             if(which==9){Page p=activePage();if(p!=null&&!p.crashed&&p.loading)p.view.stopLoading();else reloadActive();}
             if(which==10)addTab(home,true);
             if(which==0)showOverview();
             if(which==1){TabSession.Tab t=session.reopen();if(t!=null)select(t.id);else toast("No closed tab, or maximum tabs reached.");}
-            if(which==2){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(session.active().url)));}catch(Exception e){toast("No external browser is available.");}}
+            if(which==2)openExternalBrowser();
             if(which==3){try{startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS));}catch(Exception e){toast("Android downloads app is unavailable.");}}
             if(which==4)new AlertDialog.Builder(this).setMessage("Close all unpinned website tabs? Pinned tabs stay. Only the last 10 closed tabs can reopen.").setNegativeButton("Cancel",null).setPositiveButton("Close tabs",(dialog,w)->{
                 for(TabSession.Tab tab:new ArrayList<>(session.tabs))if(!tab.pinned){previews.remove(tab.id);destroyPage(tab.id);session.close(tab.id,home);}select(session.activeId);
             }).show();
             if(which==5)confirmClearData();
-            if(which==6)new AlertDialog.Builder(this).setTitle("Real website tabs, native controls").setMessage("Android WebView preview, Android 10+. Website tabs stay under Loxiro's toolbar. Some sign-ins, uploads, camera/mic, fullscreen and blob/data downloads are not supported. Direct HTTP(S) file downloads use Android Download Manager after confirmation, not the web app's parallel downloader. Use your external browser for unsupported workflows. This is not a hardened Chrome replacement.").setPositiveButton("OK",null).show();
+            if(which==6)new AlertDialog.Builder(this).setTitle("Real website tabs, native controls").setMessage("Android WebView preview, Android 10+. Website tabs stay under Loxiro's toolbar. Some embedded sign-ins, camera/mic capture and blob/data downloads remain unsupported. File/photo selection, full-screen media, link sharing and Find in Page are supported. Direct HTTP(S) file downloads use Android Download Manager after confirmation, not the web app's parallel downloader. Use your external browser for unsupported workflows. This is not a hardened Chrome replacement.").setPositiveButton("OK",null).show();
         }).show();
     }
+    private void buildFindBar(LinearLayout root){
+        findBar=row();findBar.setId(R.id.find_bar);findBar.setBackgroundColor(0xffeef0ff);findBar.setPadding(dp(8),0,0,0);findBar.setVisibility(View.GONE);
+        findInput=new EditText(this);findInput.setId(R.id.find_input);findInput.setSingleLine(true);findInput.setTextSize(14);findInput.setHint("Find in page");findInput.setContentDescription("Find text in this page");findInput.setImeOptions(EditorInfo.IME_ACTION_SEARCH);findInput.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(200)});
+        findBar.addView(findInput,new LinearLayout.LayoutParams(0,dp(48),1));
+        findCount=new TextView(this);findCount.setId(R.id.find_count);findCount.setTextColor(INK);findCount.setTextSize(11);findCount.setGravity(Gravity.CENTER);findCount.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);findBar.addView(findCount,new LinearLayout.LayoutParams(dp(42),dp(48)));
+        findBar.addView(button("↑","Previous match",v->{Page p=activePage();if(p!=null&&!p.crashed)p.view.findNext(false);}),new LinearLayout.LayoutParams(dp(48),dp(48)));
+        findBar.addView(button("↓","Next match",v->{Page p=activePage();if(p!=null&&!p.crashed)p.view.findNext(true);}),new LinearLayout.LayoutParams(dp(48),dp(48)));
+        findBar.addView(button("×","Close find in page",v->closeFind()),new LinearLayout.LayoutParams(dp(48),dp(48)));root.addView(findBar);
+        findInput.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence s,int start,int count,int after){}public void afterTextChanged(Editable e){}public void onTextChanged(CharSequence s,int start,int before,int count){
+            if(pendingFind!=null)findInput.removeCallbacks(pendingFind);if(findBar.getVisibility()!=View.VISIBLE)return;
+            findQuery=s.toString();pendingFind=()->runFind();findInput.postDelayed(pendingFind,150);
+        }});
+        findInput.setOnEditorActionListener((v,action,event)->{if(action==EditorInfo.IME_ACTION_SEARCH){runFind();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(findInput.getWindowToken(),0);return true;}return false;});
+    }
+    private void showFind(){
+        Page p=activePage();if(p==null||p.crashed)return;
+        findOwner=p.id;findBar.setVisibility(View.VISIBLE);findCount.setText("0/0");findCount.setContentDescription("No matches");findInput.requestFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(findInput,InputMethodManager.SHOW_IMPLICIT);
+    }
+    private void runFind(){
+        if(pendingFind!=null)findInput.removeCallbacks(pendingFind);
+        Page p=activePage();if(p==null||p.crashed||!p.id.equals(findOwner)||findBar.getVisibility()!=View.VISIBLE)return;
+        final String query=findInput.getText().toString();findQuery=query;
+        if(query.isEmpty()){p.view.clearMatches();findCount.setText("0/0");findCount.setContentDescription("No matches");return;}
+        findCount.setText("…");p.view.setFindListener((index,total,done)->{
+            if(done&&p.id.equals(findOwner)&&findQuery.equals(query)){findCount.setText(total==0?"0/0":(index+1)+"/"+total);findCount.setContentDescription(total==0?"No matches":("Match "+(index+1)+" of "+total));}
+        });p.view.findAllAsync(query);
+    }
+    private void closeFind(){
+        if(findBar==null)return;
+        if(pendingFind!=null)findInput.removeCallbacks(pendingFind);pendingFind=null;
+        Page owner=pages.get(findOwner);if(owner!=null&&!owner.crashed){owner.view.setFindListener(null);owner.view.clearMatches();}
+        findOwner=null;findQuery="";findBar.setVisibility(View.GONE);findInput.setText("");
+        if(findInput.hasFocus()){findInput.clearFocus();((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(findInput.getWindowToken(),0);}
+    }
+    private void leavePageTools(){exitFullscreen();closeFind();uploads.cancel();}
+    private void enterFullscreen(String id,View custom,WebChromeClient.CustomViewCallback callback){
+        if(fullscreenCallback!=null||custom.getParent()!=null){callback.onCustomViewHidden();return;}
+        closeFind();uploads.cancel();fullscreenOwner=id;fullscreenCallback=callback;
+        previousSystemUi=getWindow().getDecorView().getSystemUiVisibility();browserChrome.setVisibility(View.GONE);fullscreenHost.setVisibility(View.VISIBLE);
+        fullscreenHost.addView(custom,new FrameLayout.LayoutParams(-1,-1));
+        Button exit=button("×","Exit full screen",v->exitFullscreen());exit.setTextColor(Color.WHITE);exit.setBackgroundColor(0xaa202124);
+        FrameLayout.LayoutParams params=new FrameLayout.LayoutParams(dp(48),dp(48),Gravity.TOP|Gravity.END);params.setMargins(dp(12),dp(24),dp(12),0);fullscreenHost.addView(exit,params);
+        if(Build.VERSION.SDK_INT>=30){android.view.WindowInsetsController controller=getWindow().getInsetsController();if(controller!=null){previousBarsBehavior=controller.getSystemBarsBehavior();controller.setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);controller.hide(WindowInsets.Type.systemBars());}}
+        else getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+    }
+    private void exitFullscreen(){
+        if(fullscreenCallback==null)return;
+        WebChromeClient.CustomViewCallback callback=fullscreenCallback;fullscreenCallback=null;fullscreenOwner=null;
+        fullscreenHost.removeAllViews();fullscreenHost.setVisibility(View.GONE);browserChrome.setVisibility(View.VISIBLE);
+        if(Build.VERSION.SDK_INT>=30){android.view.WindowInsetsController controller=getWindow().getInsetsController();if(controller!=null){controller.show(WindowInsets.Type.systemBars());controller.setSystemBarsBehavior(previousBarsBehavior);}}
+        else getWindow().getDecorView().setSystemUiVisibility(previousSystemUi);
+        callback.onCustomViewHidden();
+    }
+    private void sharePage(){
+        TabSession.Tab tab=session.active();if(tab==null||!UrlPolicy.isWebUrl(tab.url)){toast("This page has no shareable website URL yet.");return;}
+        Intent share=new Intent(Intent.ACTION_SEND);share.setType("text/plain");share.putExtra(Intent.EXTRA_TEXT,tab.url);share.putExtra(Intent.EXTRA_SUBJECT,tab.label());
+        try{startActivity(Intent.createChooser(share,"Share page"));}catch(RuntimeException e){toast("No sharing app is available.");}
+    }
+    private void openExternalBrowser(){
+        if(!UrlPolicy.isWebUrl(session.active().url))return;
+        Intent link=new Intent(Intent.ACTION_VIEW,Uri.parse(session.active().url));link.addCategory(Intent.CATEGORY_BROWSABLE);
+        ArrayList<Intent> targets=new ArrayList<>();java.util.HashSet<String> seen=new java.util.HashSet<>();
+        for(android.content.pm.ResolveInfo match:getPackageManager().queryIntentActivities(link,0)){
+            String pkg=match.activityInfo.packageName;if(pkg.equals(getPackageName())||!seen.add(pkg))continue;
+            targets.add(new Intent(link).setPackage(pkg));
+        }
+        if(targets.isEmpty()){toast("No other browser or link handler is installed.");return;}
+        Intent chooser=Intent.createChooser(targets.remove(0),"Open outside Loxiro");chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS,targets.toArray(new Intent[0]));
+        try{startActivity(chooser);}catch(RuntimeException e){toast("Could not open another browser.");}
+    }
+    private void requestDefaultBrowser(){
+        try{
+            RoleManager roles=getSystemService(RoleManager.class);
+            if(roles!=null&&roles.isRoleAvailable(RoleManager.ROLE_BROWSER)){
+                if(roles.isRoleHeld(RoleManager.ROLE_BROWSER)){toast("Loxiro is already your default browser.");return;}
+                startActivityForResult(roles.createRequestRoleIntent(RoleManager.ROLE_BROWSER),702);return;
+            }
+            openSystemSettings(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS);
+        }catch(RuntimeException e){openSystemSettings(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS);}
+    }
+    @Override protected void onActivityResult(int request,int result,Intent data){
+        super.onActivityResult(request,result,data);
+        if(request==UploadPicker.REQUEST){uploads.result(result,data);return;}
+        if(request==702&&result==RESULT_OK)toast("Default-browser choice updated by Android.");
+    }
+
     private void configureReading(WebSettings settings){
         settings.setTextZoom(preferences.textZoom);
         settings.setSupportZoom(preferences.pinchZoom);settings.setBuiltInZoomControls(preferences.pinchZoom);settings.setDisplayZoomControls(false);
@@ -364,6 +492,7 @@ public final class BrowserActivity extends Activity {
         settingsDialog=new BrowserSettingsDialog(this,preferences,new BrowserSettingsDialog.Actions(){
             public void changed(){applyPreferences();}
             public void accessibility(){openSystemSettings(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);}
+            public void defaultBrowser(){requestDefaultBrowser();}
             public void display(){openSystemSettings(android.provider.Settings.ACTION_DISPLAY_SETTINGS);}
             public void downloads(){try{startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS));}catch(Exception e){toast("Android downloads is unavailable.");}}
             public void clearData(){confirmClearData();}
@@ -375,7 +504,7 @@ public final class BrowserActivity extends Activity {
         new AlertDialog.Builder(this).setTitle("Clear browser data?").setMessage("Close native tabs and remove cookies, website storage and cached pages? Android-downloaded files and browser settings remain.").setNegativeButton("Cancel",null).setPositiveButton("Clear",(d,w)->clearBrowserData()).show();
     }
     private void clearBrowserData() {
-        clearInProgress=true;dismissOverview();previews.clear();content.removeAllViews();
+        leavePageTools();clearInProgress=true;dismissOverview();previews.clear();content.removeAllViews();
         for(Page p:pages.values())if(!p.crashed)p.view.clearCache(true);
         for(String id:new ArrayList<>(pages.keySet()))destroyPage(id);
         WebStorage.getInstance().deleteAllData();store.clear();
@@ -393,14 +522,15 @@ public final class BrowserActivity extends Activity {
             }catch(Exception e){toast("Android could not start this download. Open the source externally.");}
         }).show();
     }
-    @Override protected void onPause(){super.onPause();Page p=activePage();if(p!=null&&!p.crashed)p.view.onPause();if(store!=null&&!clearInProgress)store.save(session);}
+    @Override protected void onPause(){exitFullscreen();super.onPause();Page p=activePage();if(p!=null&&!p.crashed)p.view.onPause();if(store!=null&&!clearInProgress)store.save(session);}
     @Override protected void onResume(){super.onResume();Page p=activePage();if(p!=null&&!p.crashed)p.view.onResume();}
-    @Override protected void onSaveInstanceState(Bundle state){if(!clearInProgress)store.save(session);super.onSaveInstanceState(state);}
+    @Override protected void onSaveInstanceState(Bundle state){state.putBoolean("upload_pending",uploads.pending());if(!clearInProgress)store.save(session);super.onSaveInstanceState(state);}
     @Override public void onTrimMemory(int level){super.onTrimMemory(level);if(level>=TRIM_MEMORY_RUNNING_LOW){previews.clear();for(String id:new ArrayList<>(pages.keySet()))if(!id.equals(session.activeId))destroyPage(id);refreshOverview();}}
-    @Override protected void onDestroy(){destroying=true;dismissOverview();if(settingsDialog!=null)settingsDialog.dismiss();previews.clear();if(store!=null&&!clearInProgress)store.save(session);for(String id:new ArrayList<>(pages.keySet()))destroyPage(id);super.onDestroy();}
+    @Override protected void onDestroy(){destroying=true;leavePageTools();dismissOverview();if(settingsDialog!=null)settingsDialog.dismiss();previews.clear();if(store!=null&&!clearInProgress)store.save(session);for(String id:new ArrayList<>(pages.keySet()))destroyPage(id);super.onDestroy();}
     // Package-private instrumentation observations; not exposed to website JavaScript.
     boolean activePageReady(){Page page=activePage();return page!=null&&!page.crashed&&!page.loading&&page.view.getWidth()>0&&page.view.getHeight()>0;}
-    void afterVisibleFrame(Runnable callback){if(overview!=null||settingsDialog!=null){callback.run();return;}Page page=activePage();if(page!=null&&!page.crashed)page.view.postVisualStateCallback(0,new WebView.VisualStateCallback(){@Override public void onComplete(long id){callback.run();}});}
+    void afterVisibleFrame(Runnable callback){if(overview!=null||settingsDialog!=null||fullscreenCallback!=null){callback.run();return;}Page page=activePage();if(page!=null&&!page.crashed)page.view.postVisualStateCallback(0,new WebView.VisualStateCallback(){@Override public void onComplete(long id){callback.run();}});}
+    boolean isPageFullscreen(){return fullscreenCallback!=null;}
     int previewCount(){return previews.size();}
     BrowserSettings nativeSettings(){return preferences;}
     int nativeTabCount(){return session.tabs.size();}

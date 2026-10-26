@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Instrumentation-only document source. Never included in the browser APK. -->
+        <provider android:name="app.loxiro.browser.FixtureDocumentProvider" android:authorities="app.loxiro.browser.test.files" android:exported="true" android:grantUriPermissions="true" />
+    </application>
+</manifest>

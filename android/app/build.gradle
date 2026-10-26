@@ -6,8 +6,8 @@ android {
         applicationId 'app.loxiro.browser'
         minSdk 29
         targetSdk 35
-        versionCode 4
-        versionName '0.7.0-preview.4'
+        versionCode 5
+        versionName '0.7.0-preview.5'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     buildFeatures { buildConfig true }
@@ -21,4 +21,5 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-intents:3.6.1'
 }

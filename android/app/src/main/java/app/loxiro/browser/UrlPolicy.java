@@ -32,6 +32,16 @@ final class UrlPolicy {
         try { return "https://loxiro-preview.vercel.app/?android-shell=1#results?q=" + URLEncoder.encode(q, "UTF-8"); }
         catch (java.io.UnsupportedEncodingException impossible) { return null; }
     }
+    static String sharedLink(String text) {
+        if(text==null||text.length()>8192)return null;
+        if(isWebUrl(text.trim()))return text.trim();
+        java.util.regex.Matcher links=java.util.regex.Pattern.compile("https?://[^\\s<>\"']+",java.util.regex.Pattern.CASE_INSENSITIVE).matcher(text);
+        while(links.find()){
+            String candidate=links.group().replaceAll("[.,;!?)]+$", "");
+            if(isWebUrl(candidate))return candidate;
+        }
+        return null;
+    }
     static String label(String url) {
         try { return new URI(url).getHost(); } catch (Exception ignored) { return "New tab"; }
     }

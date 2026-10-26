@@ -14,6 +14,13 @@ public class UrlPolicyTest {
         }
         assertNull(UrlPolicy.resolve(null));assertNull(UrlPolicy.resolve("  "));assertFalse(UrlPolicy.isWebUrl(null));
     }
+    @Test public void sharedLinksOnlyAllowSafeWebDestinations(){
+        assertEquals("https://example.org/page",UrlPolicy.sharedLink("Read this: https://example.org/page."));
+        assertEquals("http://example.org/",UrlPolicy.sharedLink("http://example.org/"));
+        assertNull(UrlPolicy.sharedLink("javascript:alert(1)"));assertNull(UrlPolicy.sharedLink("file:///secret"));
+        assertNull(UrlPolicy.sharedLink("https://user:pass@example.org"));assertNull(UrlPolicy.sharedLink(null));assertNull(UrlPolicy.sharedLink("No link here"));
+        assertNull(UrlPolicy.sharedLink(new String(new char[8193]).replace('\0','a')));
+    }
     @Test public void searchWordsUseTheExistingUnifiedSearchNotAnExternalEngine() {
         assertEquals("https://loxiro-preview.vercel.app/?android-shell=1#results?q=space+science",UrlPolicy.resolve("space science"));
         assertTrue(UrlPolicy.resolve("NASA").contains("#results?q=NASA"));

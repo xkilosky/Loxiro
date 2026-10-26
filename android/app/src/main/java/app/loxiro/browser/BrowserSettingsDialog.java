@@ -27,6 +27,7 @@ final class BrowserSettingsDialog extends Dialog {
         void changed();
         void accessibility();
         void display();
+        void defaultBrowser();
         void downloads();
         void clearData();
     }
@@ -97,6 +98,7 @@ final class BrowserSettingsDialog extends Dialog {
         heading("Tabs & privacy");
         toggle("Show tab previews","Last-viewed snapshots stay in memory only. Turn off to hide page contents in the tab switcher and discard existing previews.",settings.tabPreviews,value->settings.tabPreviews=value);
         heading("Other");
+        action("Default browser","Ask Android to use Loxiro for website links. You choose whether to grant this role.",v->actions.defaultBrowser());
         toggle("Keep screen awake","Keep the display on while Loxiro is in the foreground. May use more battery.",settings.keepScreenOn,value->settings.keepScreenOn=value);
         action("Android downloads","View files handled by Android’s system downloader.",v->actions.downloads());
         action("Clear browser data","Close native tabs and clear this app’s cookies, website storage and cache. Downloaded files and browser settings remain.",v->{dismiss();actions.clearData();});
