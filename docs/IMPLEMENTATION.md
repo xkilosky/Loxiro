@@ -126,3 +126,13 @@ User correction: searches must include actual websites, not only Wikipedia.
 - Removed the user-facing limited-coverage banner and embedded environment-key/setup instructions at the user's request. Removed their unused styles.
 - Search providers, coverage flags, source attribution/status, ranking, and empty/error states are unchanged; this is a presentation change, not a claim that full-web search is now connected.
 - Browser regressions assert the warning/setup UI stays absent for missing-key and configured-but-no-web-results responses, while research labels, provenance and domain counts remain visible.
+
+## Backup restore — v0.8 (2026-10-26)
+
+- Added `src/lib/backup.ts`: pure parse → sanitize → apply pipeline with no DOM or storage access. `parseBackup` returns either a typed `BackupData` plus human-readable warnings, or a single rejection reason. `applyBackup` returns the next state **and** a `RestoreSummary` of added/skipped counts so the UI never has to guess what changed.
+- `replace` is section-scoped, not wholesale: a section absent from the file is left untouched. This is tracked with an explicit `present` list derived during parsing, because "the file had an empty `saved` array" and "the file had no `saved` key" must behave differently.
+- Reused the tab sanitizer rather than duplicating it. `sanitizeTabList` and `sortTabs` are now exported from `src/lib/tabs.ts`; `restoreSession` was refactored onto them. The refactor preserves the original cross-list dedupe rule — an id claimed by the open-tab list stays open even if the same id also appears in `closed` — which a first attempt got wrong and the existing corrupt-value test caught.
+- Added a `restore` action to the tab reducer and `tabs.restore(session)` on `useTabs`, so a restored session goes through the same reducer as every other tab mutation instead of bypassing it.
+- Security: restored URLs go through the existing `safeUrl` http(s)-only gate, so a hand-edited backup cannot plant a `javascript:`/`data:`/`file:` link in Spaces. Settings are allowlisted key by key rather than spread wholesale.
+- UX: the file input is visually hidden but stays in the accessibility tree with its own label; the visible Restore button triggers it. Confirmation dialog shows counts and the export timestamp before any write.
+- Verification: 261 Vitest tests / 15 files pass, including 6 new jsdom tests that render the real `App` and drive Settings → file input → confirm → `localStorage`. `tsc --noEmit` and `npm run build` clean. Playwright suites not run here (no Chromium download available in this environment).

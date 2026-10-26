@@ -1,7 +1,7 @@
 import { useEffect, useReducer } from 'react';
 import type { EngineId } from '../types';
 import { load, persist } from '../lib/storage';
-import { blankTab, MAX_TABS, reduceTabs, restoreSession, type TabRoute, type WorkspaceTab } from '../lib/tabs';
+import { blankTab, MAX_TABS, reduceTabs, restoreSession, type TabRoute, type TabSession, type WorkspaceTab } from '../lib/tabs';
 
 export function useTabs(route: TabRoute, defaultEngine: EngineId) {
   const [session, dispatch] = useReducer(reduceTabs, undefined, () => restoreSession(load('tabs', null), route, location.hash.length>1, defaultEngine));
@@ -19,6 +19,7 @@ export function useTabs(route: TabRoute, defaultEngine: EngineId) {
     reopen: () => dispatch({type:'reopen'}),
     pin: (id: string) => dispatch({type:'pin', id}),
     move: (id: string, direction: -1|1) => dispatch({type:'move', id, direction}),
+    restore: (session: TabSession) => dispatch({type:'restore', session}),
     atLimit: session.tabs.length>=MAX_TABS,
   };
 }

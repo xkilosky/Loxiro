@@ -44,7 +44,7 @@ For local development run `npm run dev:api` in a second terminal. Optional secre
 - **Smart Downloads:** verified HTTP byte-range downloads with up to 8, 16, or 32 parts per file (8 by default), size-adaptive part counts, ordered assembly, single-stream fallback, actual bytes/speed, 1–4 queued files at a time, a shared 32-request budget, cancel/retry, and persisted history. Includes a same-origin sample file to try. Browser connection limits still apply.
 - **Tab workspace:** up to 30 local tabs for searches and Loxiro pages, independent search drafts, pin/unpin, duplicate, reorder, close/reopen (last 10), searchable mobile overview, confirmed bulk close, and automatic local session restoration. Website links still open externally.
 - **Spaces:** create colored collections, save links, filter, delete, and copy. Deleting a space moves its links to Reading list.
-- **Settings:** light/dark/system theme, reduced motion, recent-history toggle, new-tab preference, JSON data export, clear data.
+- **Settings:** light/dark/system theme, reduced motion, recent-history toggle, new-tab preference, JSON data export **and restore**, clear data.
 - **PWA:** manifest, generated icons, offline app shell, browser installation instructions and native install prompt where supported.
 - Responsive desktop sidebar and mobile bottom navigation; keyboard shortcuts, focus-trapped dialogs, accessible status messages, reduced-motion support.
 
@@ -56,7 +56,7 @@ Unified searches call a serverless aggregation endpoint; queries are shared with
 
 Web-app download speed depends on your network and source server. No acceleration guarantee. In-app web sources must allow CORS; blocked or very large sources can be opened directly in your browser. Transfers are limited to **200 MB per file**, buffered in memory, and require the app to stay open. There is no resumable/background-transfer claim. Interrupted transfers become cancelled after reload. Browser downloads remain on disk when local app data is cleared.
 
-Data is stored in versioned `localStorage` keys (`loxiro:v2:*`). Browser storage can be cleared or unavailable; keep an exported backup of important saved links. Export is supported; importing backups is not yet implemented.
+Data is stored in versioned `localStorage` keys (`loxiro:v2:*`). Browser storage can be cleared or unavailable; keep an exported backup of important saved links. Export and restore are both supported. A restore is sanitized and confirmed before anything is written, and it cannot inject a non-http(s) link into your Spaces.
 
 ## Development
 
@@ -183,3 +183,17 @@ The web workspace could not keep its tab switcher visible after handing a websit
 **Installable debug preview:** [Download the Android APK artifact (ZIP)](https://github.com/xkilosky/Loxiro/actions/runs/40166555207/artifacts/12588233381). Extract `app-debug.apk` and open it on Android 10+. GitHub sign-in may be required; the artifact is retained for 14 days. This is a debug preview, not a signed Play Store release. The sandbox cannot download GitHub's Azure-hosted artifact/log payloads, so the binary is delivered through GitHub rather than copied into this repository. The successful workflow and artifact metadata were verified through the GitHub API; no physical-device or arbitrary-website compatibility claim is made.
 
 Web validation: **198 tests / 11 files**, typecheck/build, existing browser/offline/tab/download suites, and the added `npm run test:android-web` passed. The latter tests the native UA presentation hint: no duplicate web tab strip, no hidden workspace-tab shortcuts, honest system-download/export/clear-data UI, popup handoff, mobile layout/axe, and unchanged behavior for ordinary Android browser UAs. It is not a substitute for the separate emulator tests.
+
+### Backup restore (v0.8)
+
+Export alone was only half a data story: a backup you cannot put back is not a backup. **Settings → Your data → Bring it back** restores a `loxiro-backup.json` produced by the Export button.
+
+- **Two modes, chosen before you pick a file.** *Merge* (default) only adds items you do not already have and never removes anything. *Replace* swaps the sections the file contains and drops the previous contents of those sections; sections the file does **not** contain are left untouched.
+- **Confirm before writing.** Choosing a file opens a dialog listing exactly what the file holds (links, recent searches, spaces, open/closed tabs, settings) plus its export timestamp. Nothing is written until you confirm, and Cancel changes nothing.
+- **Sanitized, not trusted.** Saved links pass the same `http`/`https`-only check as manual saves, so `javascript:`, `data:` and `file:` URLs cannot be restored. Unknown setting keys, invalid themes, engines, concurrency and part counts are ignored; tab entries are revalidated with the tab session sanitizer. A link whose space no longer exists moves to Reading list.
+- **One entry per thing.** Saved links dedupe by URL, recents by query, spaces by id then name, tabs by id — the same rules the app already enforces when you add items by hand.
+- **Bounded.** A restore is capped at a 5 MB file, 1000 saved links, 40 recents, 50 spaces, 30 open tabs and 10 closed tabs. Duplicate and over-limit items are counted and named in the result toast instead of silently dropped.
+
+Restore reads a local file through the browser's file picker; nothing is uploaded. In the Android shell the same control uses Android's native document picker, while blob **export** stays web-only there. Download history is not part of a backup.
+
+**Validation:** 34 added tests — 28 unit tests over parsing, sanitizing, merge, replace and caps, plus 6 jsdom tests that drive the real Settings UI (file input → confirmation → merge/replace → persisted `localStorage`, and the broken-file and not-a-backup rejections). `npm test` is **261 tests / 15 files**; typecheck and production build pass. The Playwright suites (`test:browser`, `test:tabs`, `test:downloads`, `test:android-web`, `test:research`) were **not** re-run for this change: this sandbox cannot download a Chromium build, so those remain verified at their last recorded run.

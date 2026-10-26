@@ -26,15 +26,26 @@ function cleanTab(raw: unknown): WorkspaceTab | null {
   return {id:t.id, screen:t.screen==='results'&&!q.trim()?'home':t.screen, engine:t.engine, q, draft:typeof t.draft === 'string' ? t.draft.slice(0,200) : '', pinned:t.pinned === true};
 }
 function sorted(tabs: WorkspaceTab[]) { return [...tabs.filter(t=>t.pinned), ...tabs.filter(t=>!t.pinned)]; }
+export const sortTabs = sorted;
+/** Drops malformed entries and de-duplicates by id, preserving input order. Shared by session restore and backup import. */
+export function sanitizeTabList(raw: unknown): WorkspaceTab[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>(); const out: WorkspaceTab[] = [];
+  for (const item of raw) {
+    const tab = cleanTab(item);
+    if (!tab || seen.has(tab.id)) continue;
+    seen.add(tab.id); out.push(tab);
+  }
+  return out;
+}
+const asArray = (v: unknown): unknown[] => Array.isArray(v) ? v : [];
 export function restoreSession(raw: unknown, route: TabRoute, explicit: boolean, engine: EngineId): TabSession {
   const value = raw && typeof raw === 'object' ? raw as Partial<TabSession> : {};
-  const seen = new Set<string>();
-  const cleanList = (list: unknown) => Array.isArray(list) ? list.map(cleanTab).filter((t): t is WorkspaceTab => {
-    if (!t || seen.has(t.id)) return false;
-    seen.add(t.id);return true;
-  }) : [];
-  let tabs = sorted(cleanList(value.tabs).slice(0,MAX_TABS));
-  const closed = cleanList(value.closed).slice(0,MAX_CLOSED_TABS);
+  const openList = sanitizeTabList(value.tabs);
+  const openIds = new Set(openList.map(t=>t.id));
+  let tabs = sorted(openList.slice(0,MAX_TABS));
+  // An id claimed by the open list stays open, matching the pre-import shared-dedupe behaviour.
+  const closed = sanitizeTabList(asArray(value.closed)).filter(t=>!openIds.has(t.id)).slice(0,MAX_CLOSED_TABS);
   if (!tabs.length) tabs = [blankTab(engine)];
   const activeId = tabs.some(t=>t.id===value.activeId) ? value.activeId! : tabs[0].id;
   const state = {tabs, activeId, closed};
@@ -49,7 +60,8 @@ export type TabAction =
   | {type:'bulk'; keepActive:boolean; blank:WorkspaceTab}
   | {type:'reopen'}
   | {type:'pin'; id:string}
-  | {type:'move'; id:string; direction:-1|1};
+  | {type:'move'; id:string; direction:-1|1}
+  | {type:'restore'; session:TabSession};
 function without(state: TabSession, closing: WorkspaceTab[], blank: WorkspaceTab): TabSession {
   if (!closing.length) return state;
   const ids = new Set(closing.map(t=>t.id));
@@ -85,6 +97,13 @@ export function reduceTabs(state: TabSession, action: TabAction): TabSession {
       const i = state.tabs.findIndex(t=>t.id===action.id), j = i+action.direction;
       if (i<0 || j<0 || j>=state.tabs.length || state.tabs[i].pinned!==state.tabs[j].pinned) return state;
       const tabs = [...state.tabs]; [tabs[i],tabs[j]]=[tabs[j],tabs[i]];return {...state,tabs};
+    }
+    case 'restore': {
+      const incoming = sanitizeTabList(action.session.tabs).slice(0,MAX_TABS);
+      if (!incoming.length) return state;
+      const tabs = sorted(incoming);
+      const activeId = tabs.some(t=>t.id===action.session.activeId) ? action.session.activeId : tabs[0].id;
+      return {tabs, activeId, closed:sanitizeTabList(action.session.closed).slice(0,MAX_CLOSED_TABS)};
     }
   }
 }
