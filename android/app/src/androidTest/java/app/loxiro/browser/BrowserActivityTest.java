@@ -52,10 +52,12 @@ public class BrowserActivityTest {
         Intent intent=new Intent(context,BrowserActivity.class);intent.putExtra("test_home",origin+"/one");scenario=ActivityScenario.launch(intent);
         awaitTitle("First fixture");
     }
-    @Test public void oledChromeUsesBlackSurfacesAndWhiteText() {
+    @Test public void oledChromeUsesBlackSurfacesAndWhiteText() throws Exception {
         scenario.onActivity(activity->{
             android.widget.EditText address=activity.findViewById(R.id.address);
-            assertEquals(android.graphics.Color.WHITE,address.getCurrentTextColor());
+            // The HTTP fixture deliberately retains its readable insecure-connection warning.
+            assertEquals(BrowserPalette.ERROR,address.getCurrentTextColor());
+            assertEquals(android.graphics.Color.WHITE,((android.widget.Button)activity.findViewById(R.id.tab_count)).getCurrentTextColor());
             assertEquals(BrowserPalette.MUTED,address.getCurrentHintTextColor());
             View root=(View)activity.findViewById(R.id.browser_toolbar).getParent();
             assertEquals(android.graphics.Color.BLACK,((android.graphics.drawable.ColorDrawable)root.getBackground()).getColor());
