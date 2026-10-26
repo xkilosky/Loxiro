@@ -120,6 +120,8 @@ export interface SmartAnalysis {
 
 export interface UnifiedResult {
   kind?: 'website' | 'reference';
+  contentType?: 'website' | 'reference' | 'paper' | 'research-record' | 'documentation' | 'discussion' | 'project' | 'book' | 'media' | 'linked-source' | 'clinical-trial';
+  discoveredFrom?: string;
   title: string;
   url: string;
   domain: string;
@@ -144,6 +146,7 @@ export interface UnifiedSearchResponse {
   limitedWebCoverage: boolean;
   webSearchConfigured?: boolean;
   websiteCount?: number;
+  domainCount?: number;
   referenceCount?: number;
   ranking: string;
   topics?: string[];

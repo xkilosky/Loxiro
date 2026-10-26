@@ -1,3 +1,4 @@
+import {tokenCoverage} from './relevance.mjs';
 import {websiteSubject} from './planner.mjs';
 /** Wikimedia reference pages should not crowd out actual website destinations. */
 export function isReferenceDomain(domain){return /(?:^|\.)(?:wikipedia\.org|wikidata\.org)$/.test(domain);}
@@ -18,10 +19,10 @@ export function canonicalUrl(raw) {
   } catch { return null; }
 }
 
-/** Reciprocal rank fusion + small textual-relevance boost + domain diversity.
+/** Reciprocal rank fusion + substantive textual relevance + domain diversity.
  * Consensus is not a truth guarantee. We expose reasons, not a fake confidence %. */
 export function rankResults(batches, query, limit = 10) {
-  const tokens = [...new Set(websiteSubject(query).toLowerCase().match(/[\p{L}\p{N}]{2,}/gu) || [])];
+  const subject=websiteSubject(query);
   const merged = new Map();
   for (const batch of batches) {
     const seen = new Set();
@@ -31,7 +32,7 @@ export function rankResults(batches, query, limit = 10) {
       seen.add(c.key);
       let row = merged.get(c.key);
       if (!row) {
-        row = {url:c.url, domain:c.domain, kind:isReferenceDomain(c.domain)?'reference':'website', title:String(item.title).slice(0,250), extract:String(item.extract || '').slice(0,1000), sources:[], votes:new Map(), score:0, bestRank:index+1};
+        row = {url:c.url, domain:c.domain, kind:isReferenceDomain(c.domain)?'reference':'website', title:String(item.title).slice(0,250), extract:String(item.extract || '').slice(0,1000), contentType:isReferenceDomain(c.domain)?'reference':item.contentType||({research:'research-record',code:c.domain==='github.com'?'project':'discussion',community:'discussion',books:'book',media:'media'}[batch.kind]||'website'), ...(item.discoveredFrom?{discoveredFrom:item.discoveredFrom}:{}), sources:[], votes:new Map(), score:0, bestRank:index+1};
         merged.set(c.key, row);
       }
       // One contribution per provider, even if a caller supplies repeated batches.
@@ -50,17 +51,17 @@ export function rankResults(batches, query, limit = 10) {
   const rows = [...merged.values()].map(row => {
     const title = row.title.toLowerCase();
     const text = `${title} ${row.extract}`.toLowerCase();
-    const relevance = tokens.length ? tokens.reduce((n,t)=>n+(title.includes(t)?1:text.includes(t)?.4:0),0)/tokens.length : 0;
-    return {...row, score:row.score*(1+relevance*.2), reason:row.sources.length>1 ? `Found by ${row.sources.length} sources` : row.bestRank===1 ? 'Top match from this source' : 'Ranked by source position and query match'};
+    const relevance=tokenCoverage(subject,title)*.7+tokenCoverage(subject,text)*.3;
+    return {...row, score:row.score*(.35+relevance), reason:row.votes.size>1 ? `Found by ${row.votes.size} sources` : row.sources.length>1 ? 'Found by related sources' : row.bestRank===1 ? 'Top match from this source' : 'Ranked by source position and query match'};
   }).sort((a,b)=>b.score-a.score || a.url.localeCompare(b.url));
   // When a real website candidate exists, lead with the strongest one. Keep
   // encyclopedia/directory pages as supporting references, not the whole feed.
   const website=rows.find(row=>row.kind==='website');
   const ordered=website?[website,...rows.filter(row=>row!==website)]:rows;
-  const selected=[], deferred=[], references=[], domains=new Map();
+  const selected=[], deferred=[], domains=new Map();
   let referenceCount=0;
   for (const row of ordered) {
-    if(website&&row.kind==='reference'&&referenceCount>=2){references.push(row);continue;}
+    if(row.kind==='reference'&&referenceCount>=2)continue;
     // DOI is a resolver for many publishers, not a single publishing domain.
     const prefix=row.domain==='doi.org'?new URL(row.url).pathname.split('/')[1].toLowerCase():'';
     const group=prefix?`doi.org/${prefix}`:row.domain;
@@ -68,5 +69,5 @@ export function rankResults(batches, query, limit = 10) {
     if (count>=2) deferred.push(row);
     else { selected.push(row); domains.set(group,count+1);if(row.kind==='reference')referenceCount++; }
   }
-  return [...selected,...deferred,...references].slice(0,limit).map(({score,bestRank,votes,...row})=>row);
+  return [...selected,...deferred].slice(0,limit).map(({score,bestRank,votes,...row})=>row);
 }

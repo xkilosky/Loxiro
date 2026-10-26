@@ -5,11 +5,17 @@
 **Live app:** https://loxiro-preview.vercel.app/
 **Original concept & plan:** https://loxiro-preview.vercel.app/plan.html
 
-## Unified search (v0.4 — free-source expansion)
+## Unified search — broader research coverage
 
-Normal searches produce **one combined feed**, not an engine picker. The server selects relevant sources, searches them in parallel, filters irrelevant specialist matches, deduplicates URLs, fuses ranks with modest query-intent priors, and diversifies domains (DOI registrant prefixes count separately). Top ten unique links show source attribution. “Best” is a relevance heuristic, not a truth guarantee.
+Normal searches produce **one combined feed**, not an engine picker. The server selects relevant sources, searches them in parallel, filters irrelevant specialist matches, deduplicates URLs, fuses ranks with substantive whole-word query relevance and intent priors, and diversifies domains (DOI registrant prefixes count separately). Up to ten unique links show source attribution. “Best” is a relevance heuristic, not a truth guarantee.
 
-**12 keyless integrations:** Wikipedia, Wikidata, DuckDuckGo Instant Answers, Crossref, OpenAlex, Europe PMC, Open Library, Internet Archive, Hacker News, Stack Overflow, GitHub repository search, and Apple iTunes. Specialists run only when the query matches their subject; unrelated sources stay idle. This is a researched, curated set, **not every free API on the internet**. These sources are not complete web-search indexes, and their free metadata does not mean every linked article, book, or media item is free to access.
+**15 keyless adapters (not 15 independent search indexes):** Wikipedia, Wikidata, DuckDuckGo Instant Answers, Crossref, OpenAlex, Europe PMC, Open Library, Internet Archive, Hacker News, Stack Overflow, GitHub repository search, Apple iTunes, MDN Web Docs, ClinicalTrials.gov, and Wikipedia-linked source discovery. Specialists run only when the query matches their subject; unrelated sources stay idle. This is a researched, curated set, **not every free API on the internet**. These sources are not complete web-search indexes, and their free metadata does not mean every linked article, book, or media item is free to access.
+
+Research topics such as solar energy, photosynthesis, astronomy and agriculture now activate scholarly sources even without the word “research”. Natural-question scaffolding is removed for specialist catalogs; whole-word relevance avoids substring matches such as “React” / “reaction”. Basic Spanish topic/question routing is included, but most upstream sources remain English-oriented.
+
+**Reference pages never exceed two results**, even when other sources are unavailable; the feed is not padded with more encyclopedia entries. Badges distinguish research papers, clinical registry records, documentation, discussions, projects, books and ordinary websites. Registry records are not proven treatments, and scholarly metadata is not a guarantee of peer review or free full text.
+
+**Article-linked sources** are bounded external links discovered through relevant Wikipedia articles, with a visible discovery trail. They are filtered to selected academic/government/publisher domains, not crawled or independently verified. Their displayed title describes the discovery context, not a fetched page headline. This expands website discovery without pretending to provide a keyless general-web index.
 
 | Optional full-web integration | Server-only variable | Documented free allowance / setup |
 |---|---|---|
@@ -23,7 +29,7 @@ Plans change; verify current limits before signing up. No accounts, payments, or
 
 To connect a free-tier web API, add its server-only variable in **Vercel → loxiro-preview → Settings → Environment Variables (Production)** and redeploy. Never use a `VITE_` prefix or commit actual credentials. Without a responding full-web integration, the app explicitly labels coverage as limited. Bing and Perplexity are not aggregation adapters; explicit bangs still navigate externally.
 
-The query planner selects at most **8 sources/search**. Each upstream HTTP request has a **4.2-second deadline** and bounded body size. Successful results (including empty responses) have a **60-second memory-cache TTL**, shared in-flight queries are coalesced, and failures do not discard other sources. Per-source pacing, HTTP Retry-After, GitHub rate resets, Stack Exchange backoff, quota exhaustion, and a two-failure circuit breaker reduce quota waste. Multiple vendors relaying the same Google index count as one ranking vote while retaining attribution.
+The query planner selects at most **8 sources/search**. Each upstream HTTP request has a **4.2-second deadline** and bounded body size. Successful results (including empty responses) have a **60-second memory-cache TTL**, shared in-flight queries are coalesced, and failures do not discard other sources. Per-source pacing, HTTP Retry-After, GitHub rate resets, Stack Exchange backoff, quota exhaustion, and a two-failure circuit breaker reduce quota waste. Multiple vendors relaying the same Google index count as one ranking vote while retaining attribution. Wikipedia, Wikidata and article-link discovery also share one Wikimedia vote.
 
 For local development run `npm run dev:api` in a second terminal. Optional secrets go in ignored `.env.local` (see `.env.example`). The backend uses Node 22+ and same-origin `/api/search`.
 

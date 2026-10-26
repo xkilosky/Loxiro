@@ -15,7 +15,8 @@
     "dev:api": "node --env-file-if-exists=.env.local server/dev.mjs",
     "test:downloads": "node scripts/download-smoke.mjs",
     "test:tabs": "node scripts/tabs-smoke.mjs",
-    "test:android-web": "node scripts/android-web-smoke.mjs"
+    "test:android-web": "node scripts/android-web-smoke.mjs",
+    "test:research": "node scripts/research-smoke.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.1.1",

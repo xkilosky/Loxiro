@@ -1,14 +1,14 @@
 import {createHash} from 'node:crypto';
 import {ProviderError} from './transport.mjs';
 import {canonicalUrl} from './rank.mjs';
-const STOP=new Set('a an the is are was were of and or to in on for with how what why when where best find search fix please'.split(' '));
-export function usefulTokens(query){return query.toLowerCase().match(/[\p{L}\p{N}+#]+/gu)?.filter(t=>t.length>1&&!STOP.has(t))||[];}
+import {usefulTokens,tokenCoverage} from './relevance.mjs';
+export {usefulTokens} from './relevance.mjs';
 function prune(results,query,lexical){
   const tokens=usefulTokens(query);
-  return results.slice(0,24).filter(r=>r&&typeof r.title==='string'&&typeof r.url==='string'&&canonicalUrl(r.url)).map(r=>({title:r.title.slice(0,220),url:r.url,extract:String(r.extract||'').slice(0,700)})).filter(r=>{
+  return results.slice(0,24).filter(r=>r&&typeof r.title==='string'&&typeof r.url==='string'&&canonicalUrl(r.url)).map(r=>({title:r.title.slice(0,220),url:r.url,extract:String(r.extract||'').slice(0,700),...(r.contentType?{contentType:r.contentType}:{}),...(r.discoveredFrom&&canonicalUrl(r.discoveredFrom)?{discoveredFrom:r.discoveredFrom}:{})})).filter(r=>{
     if(!lexical||!tokens.length)return true;
     const text=`${r.title} ${r.extract}`.toLowerCase();
-    return tokens.filter(t=>text.includes(t)).length/tokens.length>=.25;
+    return tokenCoverage(query,text)>=.4;
   });
 }
 /** Warm-instance protection, not distributed rate limiting. Never logs or writes queries. */

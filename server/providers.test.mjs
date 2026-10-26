@@ -8,6 +8,9 @@ import {rankResults} from './rank.mjs';
 afterEach(()=>vi.unstubAllGlobals());
 const item=(title='Quantum computing',url='https://example.org/paper')=>({title,url,extract:'Quantum computing research'});
 const fixtures={
+  linked_sources:{query:{pages:{1:{title:'Quantum computing',extlinks:[{'*':'https://www.nasa.gov/quantum-computing/'}]}}}},
+  mdn:{documents:[{title:'Quantum computing',mdn_url:'/en-US/docs/Web/API/Quantum',summary:'Quantum computing documentation'}]},
+  clinicaltrials:{studies:[{protocolSection:{identificationModule:{nctId:'NCT12345678',briefTitle:'Quantum computing'},descriptionModule:{briefSummary:'Quantum computing study'},statusModule:{overallStatus:'RECRUITING'},conditionsModule:{conditions:['Quantum computing']}}}]},
   wikipedia:{query:{pages:{1:{title:'Quantum computing',extract:'Encyclopedia',index:1}}}},
   wikidata:{search:[{id:'Q4640',label:'Quantum computing',description:'A computation paradigm'}]},
   duckduckgo:{Heading:'Quantum computing',AbstractURL:'https://example.org/duck',AbstractText:'Instant answer',RelatedTopics:[{Topics:[{Text:'Quantum topic - more',FirstURL:'https://example.org/topic'}]}]},
@@ -27,9 +30,9 @@ const fixtures={
   brave:{web:{results:[{title:'Quantum computing',url:'https://example.org/brave',description:'<b>Safe</b> snippet'}]}},
 };
 describe('provider registry and normalization',()=>{
-  it('has twelve keyless sources, three optional free-key web adapters, and two paid opt-ins',()=>{
+  it('has fifteen keyless adapters, three optional free-key web adapters, and two paid opt-ins',()=>{
     expect(new Set(PROVIDERS.map(p=>p.id)).size).toBe(PROVIDERS.length);
-    expect(PROVIDERS.filter(p=>p.access==='keyless')).toHaveLength(12);
+    expect(PROVIDERS.filter(p=>p.access==='keyless')).toHaveLength(15);
     expect(PROVIDERS.filter(p=>p.access==='free-key')).toHaveLength(3);
     expect(PROVIDERS.filter(p=>p.paid)).toHaveLength(2);
   });
@@ -71,7 +74,7 @@ describe('provider registry and normalization',()=>{
 describe('relevant and bounded query planning',()=>{
   it('keeps unrelated specialists idle',()=>{
     const p=planProviders('weather in Guatemala City',PROVIDERS,{});
-    expect(p.selected).toEqual(['wikipedia','wikidata','duckduckgo']);expect(p.topics).toEqual(['general']);
+    expect(p.selected).toEqual(['linked_sources','wikipedia','wikidata','duckduckgo']);expect(p.topics).toEqual(['general']);
   });
   it.each([['react useeffect error',['stackoverflow','github','hackernews']],['quantum computing research',['crossref','openalex']],['cancer treatment',['europepmc','crossref']],['Tolkien books',['openlibrary','archive']],['Beatles music',['itunes','archive']]])('routes %s to relevant sources',(q,ids)=>{
     const p=planProviders(q,PROVIDERS,{});for(const id of ids)expect(p.selected).toContain(id);

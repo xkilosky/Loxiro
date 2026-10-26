@@ -49,7 +49,7 @@ describe('parallel source aggregation',()=>{
     const fetcher=vi.fn(async url=>new Response(JSON.stringify(String(url).includes('serper')?{organic:[{title:'Shared',link:'https://shared.test',snippet:'Google snippet'}]}:String(url).includes('brave')?{web:{results:[{title:'Shared',url:'https://shared.test',description:'<b>Brave</b> snippet'}]}}:String(url).includes('wikipedia')?{query:{pages:{1:{title:'Shared topic',extract:'An encyclopedia article',index:1}}}}:{Heading:'Shared topic',AbstractURL:'https://shared.test',AbstractText:'Instant answer',RelatedTopics:[]})));
     vi.stubGlobal('fetch',fetcher);
     const data=await aggregateSearch('shared',{env:{SERPER_API_KEY:'server-secret',BRAVE_SEARCH_API_KEY:'server-secret',LOXIRO_ALLOW_PAID_PROVIDERS:'1'}});
-    expect(fetcher).toHaveBeenCalledTimes(5);expect(data.results[0].sources).toHaveLength(3);expect(data.providers.filter(p=>!['not_configured','skipped'].includes(p.status)).every(p=>p.status==='ok')).toBe(true);expect(JSON.stringify(data)).not.toContain('server-secret');
+    expect(fetcher).toHaveBeenCalledTimes(6);expect(data.results[0].sources).toHaveLength(3);expect(data.providers.filter(p=>!['not_configured','skipped'].includes(p.status)).every(p=>p.status==='ok')).toBe(true);expect(JSON.stringify(data)).not.toContain('server-secret');
   });
 });
 describe('HTTP boundary',()=>{
