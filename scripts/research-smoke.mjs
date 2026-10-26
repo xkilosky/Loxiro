@@ -12,13 +12,21 @@ try{
     {title:'Cancer study record',url:'https://clinicaltrials.gov/study/NCT12345678',domain:'clinicaltrials.gov',kind:'website',contentType:'clinical-trial',sources:['ClinicalTrials.gov'],extract:'Explicit category rendering fixture, not a solar result.',reason:'Fixture'},
     {title:'Fetch API',url:'https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API',domain:'developer.mozilla.org',kind:'website',contentType:'documentation',sources:['MDN Web Docs'],extract:'Explicit category rendering fixture, not a solar result.',reason:'Fixture'},
   ];
-  await page.route('**/api/search?*',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({query:'solar energy',results,providers:[{id:'crossref',name:'Crossref',kind:'research',access:'keyless',status:'ok',count:1}],topics:['research'],websiteCount:4,referenceCount:1,domainCount:5,limitedWebCoverage:true,webSearchConfigured:false})}));
+  let configured=false;
+  await page.route('**/api/search?*',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({query:'solar energy',results,providers:[{id:'crossref',name:'Crossref',kind:'research',access:'keyless',status:'ok',count:1}],topics:['research'],websiteCount:4,referenceCount:1,domainCount:5,limitedWebCoverage:true,webSearchConfigured:configured})}));
   await page.route('https://icons.duckduckgo.com/**',r=>r.abort());
   await page.goto(process.env.LOXIRO_BASE_URL||'http://localhost:4173');await page.getByRole('combobox').fill('solar energy');await page.getByRole('combobox').press('Enter');
   await page.locator('.result-kind').getByText('Research paper',{exact:true}).waitFor();
   for(const label of ['Article-linked source','Reference','Clinical study record','Documentation'])assert.equal(await page.locator('.result-kind').getByText(label,{exact:true}).count(),1);
   assert.equal(await page.locator('.source-provenance').getAttribute('href'),'https://en.wikipedia.org/wiki/Solar_energy');assert.ok((await page.locator('.results-meta').innerText()).includes('5 domains'));
+  for(const connected of [false,true]){
+    if(connected){configured=true;await page.getByRole('combobox').fill('solar energy sources');await page.getByRole('combobox').press('Enter');await page.locator('.result-kind').getByText('Research paper',{exact:true}).waitFor();}
+    assert.equal(await page.locator('.coverage-notice,.web-setup-details').count(),0);
+    assert.equal(await page.getByText('Limited coverage right now.',{exact:true}).count(),0);
+    assert.equal(await page.getByText('Enable broader website search',{exact:true}).count(),0);
+    assert.equal(await page.getByRole('link',{name:'Open secure environment settings'}).count(),0);
+  }
   for(const width of [360,390,768,1440]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Overflow at ${width}`);}
   for(const theme of ['light','dark']){await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);await page.waitForTimeout(400);const axe=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.deepEqual(axe.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})),[],`${theme} search accessibility`);}
-  assert.deepEqual(errors,[]);console.log('PASS research/source categories, discovery trail, limited-coverage disclosure, domain count, responsive light/dark accessibility, no runtime exceptions');
+  assert.deepEqual(errors,[]);console.log('PASS research/source categories, discovery trail, no coverage/setup banner for missing-key or outage responses, domain count, responsive light/dark accessibility, no runtime exceptions');
 }finally{await browser.close();}

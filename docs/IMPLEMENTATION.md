@@ -120,3 +120,9 @@ User correction: searches must include actual websites, not only Wikipedia.
 - Live review refinement: soft content-category diversity preserves room for original websites/registry records instead of a DOI-only replacement feed; scholarly/community candidates backfill if alternatives run out. Community-shared articles are distinguished from actual discussion pages, and clinical registry update dates are displayed when supplied.
 
 - Knowledge and article-linked discovery also pass the substantive lexical gate: diversity must not promote unrelated disambiguation/authority pages over relevant website candidates. Regression covers JavaScript Fetch API versus generic “Fetch” / JavaScript-framework pages.
+
+## Results-page banner cleanup
+
+- Removed the user-facing limited-coverage banner and embedded environment-key/setup instructions at the user's request. Removed their unused styles.
+- Search providers, coverage flags, source attribution/status, ranking, and empty/error states are unchanged; this is a presentation change, not a claim that full-web search is now connected.
+- Browser regressions assert the warning/setup UI stays absent for missing-key and configured-but-no-web-results responses, while research labels, provenance and domain counts remain visible.
