@@ -120,7 +120,7 @@ export interface SmartAnalysis {
 
 export interface UnifiedResult {
   kind?: 'website' | 'reference';
-  contentType?: 'website' | 'reference' | 'paper' | 'research-record' | 'documentation' | 'discussion' | 'project' | 'book' | 'media' | 'linked-source' | 'clinical-trial';
+  contentType?: 'website' | 'reference' | 'paper' | 'research-record' | 'documentation' | 'discussion' | 'community-link' | 'project' | 'book' | 'media' | 'linked-source' | 'clinical-trial';
   discoveredFrom?: string;
   title: string;
   url: string;

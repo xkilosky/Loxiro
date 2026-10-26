@@ -53,7 +53,7 @@ export const PROVIDERS=[
     const d=await json(params('https://clinicaltrials.gov/api/v2/studies',{'query.term':specialistQuery(q),format:'json',pageSize:8,fields:'NCTId,BriefTitle,BriefSummary,OverallStatus,Condition,LastUpdatePostDate'}),{env});
     return(d.studies||[]).flatMap(r=>{
       const p=r.protocolSection||{},id=p.identificationModule?.nctId;if(!/^NCT\d+$/.test(id||''))return [];
-      return[{title:p.identificationModule.briefTitle,url:`https://clinicaltrials.gov/study/${id}`,contentType:'clinical-trial',extract:describe(p.statusModule?.overallStatus?.replaceAll('_',' '),p.conditionsModule?.conditions?.join(', '),p.descriptionModule?.briefSummary?.slice(0,400),'Study registry record, not a treatment recommendation or a peer-reviewed finding.')}];
+      return[{title:p.identificationModule.briefTitle,url:`https://clinicaltrials.gov/study/${id}`,contentType:'clinical-trial',extract:describe(p.statusModule?.overallStatus?.replaceAll('_',' '),p.conditionsModule?.conditions?.join(', '),p.statusModule?.lastUpdatePostDateStruct?.date?`Registry updated ${p.statusModule.lastUpdatePostDateStruct.date}`:'',p.descriptionModule?.briefSummary?.slice(0,400),'Study registry record, not a treatment recommendation or a peer-reviewed finding.')}];
     });
   }},
   {id:'crossref',label:'Crossref',kind:'research',access:'keyless',topics:['research','health'],minInterval:1000,lexical:true,async run(q,env){

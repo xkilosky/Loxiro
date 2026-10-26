@@ -32,6 +32,15 @@ describe('research quality regressions',()=>{
     const unrelated=item('https://wrong.example.org','General conference proceedings','A conference on computer systems');
     const r=rankResults([{provider:'A',results:[unrelated]},{provider:'B',results:[unrelated]},{provider:'Crossref',kind:'research',results:[item('https://doi.org/10.1234/solar','Solar energy storage systems','Solar energy storage review')]}],'solar energy');expect(r[0].domain).toBe('doi.org');expect(r[0].contentType).toBe('paper');
   });
+  it('reserves space for relevant direct sources rather than a DOI-only replacement feed',()=>{
+    const papers=Array.from({length:12},(_,i)=>item(`https://doi.org/10.${1000+i}/solar`,'Solar energy research'));
+    const r=rankResults([{provider:'Papers',kind:'research',results:papers},{provider:'Originals',weight:.65,results:[item('https://www.energy.gov/solar','Solar energy guide'),item('https://www.nasa.gov/solar','Solar energy science')]}],'solar energy');
+    expect(r).toHaveLength(10);expect(r.slice(0,6).map(r=>r.domain)).toContain('energy.gov');expect(r.slice(0,6).map(r=>r.domain)).toContain('nasa.gov');
+  });
+  it('distinguishes a community-shared article from a discussion page',()=>{
+    const r=rankResults([{provider:'HN',kind:'community',results:[item('https://example.org/solar','Solar energy'),item('https://news.ycombinator.com/item?id=1','Solar energy discussion')]}],'solar energy');
+    expect(r.find(r=>r.domain==='example.org').contentType).toBe('community-link');expect(r.find(r=>r.domain==='news.ycombinator.com').contentType).toBe('discussion');
+  });
   it('keeps reference caps and website diversity in a mixed feed',()=>{
     const r=rankResults([{provider:'Wiki',family:'wikimedia',results:Array.from({length:8},(_,i)=>item(`https://en.wikipedia.org/wiki/Solar_${i}`,'Solar energy'))},{provider:'Papers',kind:'research',results:Array.from({length:8},(_,i)=>item(`https://doi.org/10.${1000+i}/solar`,'Solar energy review'))}],'solar energy');expect(r).toHaveLength(10);expect(r.filter(r=>r.kind==='reference')).toHaveLength(2);expect(r[0].contentType).toBe('paper');
   });

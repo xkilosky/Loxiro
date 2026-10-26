@@ -32,7 +32,7 @@ export function rankResults(batches, query, limit = 10) {
       seen.add(c.key);
       let row = merged.get(c.key);
       if (!row) {
-        row = {url:c.url, domain:c.domain, kind:isReferenceDomain(c.domain)?'reference':'website', title:String(item.title).slice(0,250), extract:String(item.extract || '').slice(0,1000), contentType:isReferenceDomain(c.domain)?'reference':item.contentType||({research:'research-record',code:c.domain==='github.com'?'project':'discussion',community:'discussion',books:'book',media:'media'}[batch.kind]||'website'), ...(item.discoveredFrom?{discoveredFrom:item.discoveredFrom}:{}), sources:[], votes:new Map(), score:0, bestRank:index+1};
+        row = {url:c.url, domain:c.domain, kind:isReferenceDomain(c.domain)?'reference':'website', title:String(item.title).slice(0,250), extract:String(item.extract || '').slice(0,1000), contentType:isReferenceDomain(c.domain)?'reference':item.contentType||({research:'research-record',code:c.domain==='github.com'?'project':'discussion',community:c.domain==='news.ycombinator.com'?'discussion':'community-link',books:'book',media:'media'}[batch.kind]||'website'), ...(item.discoveredFrom?{discoveredFrom:item.discoveredFrom}:{}), sources:[], votes:new Map(), score:0, bestRank:index+1};
         merged.set(c.key, row);
       }
       // One contribution per provider, even if a caller supplies repeated batches.
@@ -58,7 +58,7 @@ export function rankResults(batches, query, limit = 10) {
   // encyclopedia/directory pages as supporting references, not the whole feed.
   const website=rows.find(row=>row.kind==='website');
   const ordered=website?[website,...rows.filter(row=>row!==website)]:rows;
-  const selected=[], deferred=[], domains=new Map();
+  const selected=[], deferred=[], domains=new Map(), categories=new Map();
   let referenceCount=0;
   for (const row of ordered) {
     if(row.kind==='reference'&&referenceCount>=2)continue;
@@ -66,8 +66,14 @@ export function rankResults(batches, query, limit = 10) {
     const prefix=row.domain==='doi.org'?new URL(row.url).pathname.split('/')[1].toLowerCase():'';
     const group=prefix?`doi.org/${prefix}`:row.domain;
     const count=domains.get(group)||0;
-    if (count>=2) deferred.push(row);
-    else { selected.push(row); domains.set(group,count+1);if(row.kind==='reference')referenceCount++; }
+    // Soft content diversity: preserve room for original sites, documentation and
+    // registry records instead of replacing an encyclopedia-only feed with a DOI-only feed.
+    // Deferred non-reference rows may still fill otherwise empty places.
+    const category=['paper','research-record','book'].includes(row.contentType)?'literature':['discussion','community-link'].includes(row.contentType)?'community':row.contentType;
+    const allowance={literature:4,community:4,'linked-source':2,'clinical-trial':2}[category]??Infinity;
+    const categoryCount=categories.get(category)||0;
+    if (count>=2||categoryCount>=allowance) deferred.push(row);
+    else { selected.push(row); domains.set(group,count+1);categories.set(category,categoryCount+1);if(row.kind==='reference')referenceCount++; }
   }
   return [...selected,...deferred].slice(0,limit).map(({score,bestRank,votes,...row})=>row);
 }
