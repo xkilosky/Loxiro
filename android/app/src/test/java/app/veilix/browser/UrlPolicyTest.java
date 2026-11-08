@@ -4,10 +4,10 @@ import static org.junit.Assert.*;
 public class UrlPolicyTest {
     @Test public void onlyHostedHomeAndSearchNeedTheNativeAddressBar(){
         assertTrue(UrlPolicy.isHomeSurface(UrlPolicy.HOME));
-        assertTrue(UrlPolicy.isHomeSurface("https://LOXIRO-PREVIEW.VERCEL.APP:443/?android-shell=1#home"));
+        assertTrue(UrlPolicy.isHomeSurface("https://VEILIX-PREVIEW.VERCEL.APP:443/?android-shell=1#home"));
         assertTrue(UrlPolicy.isHomeSurface("https://veilix-preview.vercel.app/#results?q=test"));
         assertTrue(UrlPolicy.isHomeSurface("https://veilix-preview.vercel.app"));
-        for(String url:new String[]{"https://example.org/","https://veilix-preview.vercel.app.evil.org/","https://evil.org/?https://veilix-preview.vercel.app/","http://veilix-preview.vercel.app/","https://veilix-preview.vercel.app:8443/","https://veilix-preview.vercel.app/article","about:blank","https://user@veilix-preview.vercel.app/"})assertFalse(url,UrlPolicy.isHomeSurface(url));
+        for(String url:new String[]{"https://example.org/","https://veilix-preview.vercel.app.evil.org/","https://evil.org/?https://veilix-preview.vercel.app/","http://veilix-preview.vercel.app/","https://veilix-preview.vercel.app:8443/","https://veilix-preview.vercel.app/article","about:blank","https://user@veilix-preview.vercel.app/","https://loxiro-preview.vercel.app/"})assertFalse(url,UrlPolicy.isHomeSurface(url));
         assertFalse(UrlPolicy.isHomeSurface(null));
     }
     @Test public void acceptsWebNavigationWithoutCredentials() {
