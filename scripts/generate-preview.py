@@ -44,18 +44,18 @@ TEMPLATE = r"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Veilix — Preview &amp; Downloads</title>
 <style>
-:root{--paper:#F7F6F2;--surface:#fff;--ink:#14151A;--muted:#6E6F74;--faint:#A9AAAE;--line:#E7E6E1;--accent:#3B5BFF;--accent-soft:#EDF0FF;}
+:root{--paper:#F2F7FD;--surface:#fff;--ink:#14151A;--muted:#6E6F74;--faint:#A9AAAE;--line:#E4EDF9;--accent:#0E7490;--accent-soft:#E6F6FC;}
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
 .wrap{max-width:920px;margin:0 auto;padding:48px 24px 80px}
-.badge{display:inline-block;background:var(--accent-soft);color:#2B3C9C;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;padding:6px 10px;border-radius:999px;margin-bottom:24px}
+.badge{display:inline-block;background:var(--accent-soft);color:#0B5C73;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;padding:6px 10px;border-radius:999px;margin-bottom:24px}
 header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 h1{font-size:44px;letter-spacing:-.04em;font-weight:650;margin:0}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);display:inline-block;margin-left:-4px;transform:translateY(-18px)}
 .tag{color:var(--muted);font-size:14px;margin:8px 0 0}
-.offline{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#2B3C9C;background:var(--accent-soft);padding:5px 10px;border-radius:999px;margin-left:8px;vertical-align:middle}
+.offline{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#0B5C73;background:var(--accent-soft);padding:5px 10px;border-radius:999px;margin-left:8px;vertical-align:middle}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;margin:28px 0;box-shadow:0 4px 16px rgba(20,21,26,.05);text-align:center}
-.card img{max-width:100%;height:auto;border-radius:12px;display:block;margin:0 auto;min-height:120px;background:#FBFBF9}
+.card img{max-width:100%;height:auto;border-radius:12px;display:block;margin:0 auto;min-height:120px;background:#FFFFFF}
 .buttons{display:flex;flex-wrap:wrap;gap:12px;margin:24px 0 40px}
 a.btn,button.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;border-radius:999px;text-decoration:none;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--ink);transition:transform .15s ease,background .15s ease;min-height:48px;cursor:pointer;font-family:inherit}
 a.btn:hover,button.btn:hover{transform:translateY(-1px)}
@@ -67,7 +67,7 @@ a.btn.primary:hover,button.btn.primary:hover{background:#2F4BE0}
 .tile p{margin:0;color:var(--muted);font-size:13px}
 details{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-top:16px}
 summary{cursor:pointer;font-weight:600;font-size:15px}
-pre{white-space:pre-wrap;word-wrap:break-word;font-size:12px;color:var(--muted);max-height:520px;overflow:auto;background:#FBFBF9;border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:16px}
+pre{white-space:pre-wrap;word-wrap:break-word;font-size:12px;color:var(--muted);max-height:520px;overflow:auto;background:#FFFFFF;border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:16px}
 .svgbox{text-align:center;margin-top:16px}
 .svgbox img{max-width:260px;width:100%;border:1px solid var(--line);border-radius:12px}
 footer{margin-top:48px;color:var(--faint);font-size:12px;text-align:center}

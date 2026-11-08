@@ -67,9 +67,9 @@ The hosted app recognizes the `LoxiroAndroid/0.7` user-agent presentation marker
 
 JVM tests cover URL policy and native tab identity, selection, close/reopen, pins, ordering and caps. Instrumentation uses a local HTTP server and **real touch events** to open a website popup, switch real WebViews beneath persistent native chrome, recreate the Activity, enter another website, and reject unsafe address input. These fixtures do not establish compatibility with every website. Build/emulator results must be checked in Actions; this sandbox has no Android SDK/JDK and cannot verify Android locally.
 
-## OLED palette — preview.6
+## Arctic Cyan palette — preview.6
 
-Native toolbar, address field, Find bar, settings, dialogs and tab overview now use an OLED-black/neutral-gray palette with white accents, white text and pale error text. Status/navigation bar icons are light. This changes browser chrome only, not third-party page styles or screenshot contents. Hosted Home/results provide independent OLED, White and System choices; no native White-theme toggle is claimed.
+Native toolbar, address field, Find bar, settings, dialogs and tab overview now use an Arctic-navy palette (`#080B14` ground, `#0F1524` surfaces) with cyan accents (`#5FD9F0`), pale-blue text (`#E8F1FF`) and pale error text. Status/navigation bar icons are light. This changes browser chrome only, not third-party page styles or screenshot contents. Hosted Home/results provide independent Arctic, White and System choices; no native White-theme toggle is claimed.
 
 
 ## Fullscreen websites — preview.7
@@ -79,6 +79,6 @@ Native toolbar, address field, Find bar, settings, dialogs and tab overview now 
 - **Android Back** first exits full-screen media if present, then website fullscreen, before navigating page history or closing tabs. Rotation/Activity recreation retain website fullscreen. There is no new persisted fullscreen preference or automatic fullscreen on a fresh launch.
 - **New tab, hosted Home/search, closing the last tab, or a page/certificate/renderer error** restore the address bar so search, URL verification and recovery remain usable. Fullscreen entry is unavailable on hosted Home/search or a failed page. Existing website tabs stay fullscreen when switched.
 - A brief native message identifies the site and Back-to-exit on entry, tab switching and cross-origin navigation. The Tabs accessibility label includes the current origin and insecure-HTTP warning; the full URL remains available by exiting fullscreen. This does not replace a visible address bar for verifying a website before entering sensitive information.
-- The opaque OLED/white button is at least 56×52dp, becomes 72×64dp with **Roomier address bar**, and accounts for system gestures, display cutouts and the keyboard. Website content is not recolored or rewritten. Video custom-view fullscreen remains separate and returns to the previous website mode on exit.
+- The opaque Arctic/white button is at least 56×52dp, becomes 72×64dp with **Roomier address bar**, and accounts for system gestures, display cutouts and the keyboard. Website content is not recolored or rewritten. Video custom-view fullscreen remains separate and returns to the previous website mode on exit.
 
 Android instrumentation covers one-control expanded layout, native tab switching, a trusted popup, Activity recreation, portrait/landscape rotation, Back before history, new-tab/last-tab recovery, larger controls, and real video fullscreen nested inside website fullscreen. Screenshots are included in the workflow's reports. This is emulator coverage, not a physical-device/cutout/TalkBack or all-site compatibility claim.

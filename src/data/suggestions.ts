@@ -7,7 +7,7 @@ export const SUGGESTIONS: string[] = [
   'convert 100 km to miles',
   'sqrt(1764)',
   '15 * 24 + 380',
-  '#3B5BFF',
+  '#38BDF8',
   'react server components explained',
   'typescript satisfies operator',
   'fastest way to download large files',
@@ -35,6 +35,6 @@ export const SUGGESTIONS: string[] = [
 export const QUICK_EXAMPLES: { label: string; query: string }[] = [
   { label: 'Calculate', query: 'sqrt(1764) + 12 * 3' },
   { label: 'Convert', query: '100 km to mi' },
-  { label: 'Color', query: '#3B5BFF' },
+  { label: 'Color', query: '#38BDF8' },
   { label: 'Bang', query: '!w quantum computing' },
 ];
