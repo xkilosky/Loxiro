@@ -172,8 +172,12 @@ Engine identity colors (dots only, never large fills): Google `#4285F4`, Bing `#
 ### Spacing, radius, elevation
 
 - 4px base grid: `4, 8, 12, 16, 24, 32, 48, 64`.
-- Radius: `12` cards, `16` sheets, `999` pills/chips, `32` floating nav.
-- Elevation: one soft shadow (`0 4px 16px rgba(20,21,26,.07)`) on the search field and bottom nav only. Everywhere else, a 1px `--line` border.
+- Radius: a three-step scale exposed as tokens and used everywhere, instead of one-off values per component — `--radius-sm:10px` (buttons, chips, inputs, list rows), `--radius-md:14px` (cards, panels, the source list, toasts), `--radius-lg:18px` (hero surfaces: search field, tool workspace, empty states). Pills and the floating nav keep their own large radii.
+- Elevation: three tokens — `--shadow-sm` (resting cards and the primary button), `--shadow-md` (hover lift), `--shadow-ring` (focus ring, tinted with the accent). Both are defined per theme so the shadow colour follows the ground rather than assuming black. Hairline `--line` borders remain the default separator; elevation is reserved for interactive and raised surfaces.
+- Focus: every interactive element gets a 2px accent outline at 2px offset plus `--shadow-ring`, so keyboard focus is visible on both grounds.
+- Motion: buttons and rows transition background, colour, border and transform over `.16s`; presses are `translateY(1px)` and hovers lift `1px`. `prefers-reduced-motion` is respected globally.
+
+The radius, elevation and legibility floors are pinned by `scripts/design-system.test.mjs`, so a component cannot quietly reintroduce a one-off radius or sub-8px type.
 
 ### Motion
 
