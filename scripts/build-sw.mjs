@@ -7,7 +7,7 @@ writeFileSync('dist/sw.js', `
 const CACHE = 'veilix-${hash}';
 const SHELL = ${JSON.stringify(files)};
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL))); });
-self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>/^(veilix|veilix)-/.test(k)&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
+self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>/^(veilix|loxiro)-/.test(k)&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method!=='GET' || url.origin!==self.location.origin) return;
