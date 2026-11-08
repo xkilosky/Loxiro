@@ -1,9 +1,9 @@
 {
-  "name": "loxiro",
+  "name": "veilix",
   "version": "0.8.0",
   "private": true,
   "type": "module",
-  "description": "Loxiro — a fast, calm, smart search browser for the web",
+  "description": "Veilix — a fast, calm, smart search browser for the web",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build && node scripts/build-sw.mjs && node scripts/stage-output.mjs",

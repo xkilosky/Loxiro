@@ -1,4 +1,4 @@
-package app.loxiro.browser;
+package app.veilix.browser;
 
 /** Native browser preferences. Independent of the hosted web app's local settings. */
 final class BrowserSettings {

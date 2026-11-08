@@ -1,8 +1,13 @@
 plugins { id 'com.android.application' }
 android {
-    namespace 'app.loxiro.browser'
+    // Source package for generated code (R, BuildConfig). Kept in step with the
+    // Java sources under java/app/veilix/browser.
+    namespace 'app.veilix.browser'
     compileSdk 35
     defaultConfig {
+        // Deliberately still the pre-rename id: it owns the on-device data directory
+        // (/data/data/app.loxiro.browser), so keeping it means existing installs
+        // upgrade in place instead of losing tabs and settings.
         applicationId 'app.loxiro.browser'
         minSdk 29
         targetSdk 35

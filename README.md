@@ -1,4 +1,4 @@
-# Loxiro
+# Veilix
 
 **Search, without the noise.** A mobile-first, installable search companion with direct downloads and on-device smart tools.
 
@@ -25,7 +25,7 @@ Research topics such as solar energy, photosynthesis, astronomy and agriculture 
 | Google via Serper (legacy) | `SERPER_API_KEY` | Trial/paid; additionally requires `LOXIRO_ALLOW_PAID_PROVIDERS=1` |
 | Brave Search (legacy) | `BRAVE_SEARCH_API_KEY` | Recurring $5 credit with paid-overage-capable pricing; additionally requires `LOXIRO_ALLOW_PAID_PROVIDERS=1` |
 
-Plans change; verify current limits before signing up. No accounts, payments, or API keys are provisioned by Loxiro. No paid provider is enabled by default. Providing a key does **not** prove its account is on a free plan; use a free plan, disable auto-upgrades/overages where available, and set provider-side hard limits. Loxiro's in-memory protection does not enforce a monthly billing cap.
+Plans change; verify current limits before signing up. No accounts, payments, or API keys are provisioned by Veilix. No paid provider is enabled by default. Providing a key does **not** prove its account is on a free plan; use a free plan, disable auto-upgrades/overages where available, and set provider-side hard limits. Veilix's in-memory protection does not enforce a monthly billing cap.
 
 To connect a free-tier web API, add its server-only variable in **Vercel → loxiro-preview → Settings → Environment Variables (Production)** and redeploy. Never use a `VITE_` prefix or commit actual credentials. Without a responding full-web integration, coverage remains limited; source statuses and API coverage metadata remain accurate. The results page does not display a coverage-warning or hosting-setup banner. Bing and Perplexity are not aggregation adapters; explicit bangs still navigate externally.
 
@@ -42,7 +42,7 @@ For local development run `npm run dev:api` in a second terminal. Optional secre
 - **Smart routing:** recognizes URLs, questions, code queries, calculations, colors, conversions, and bang shortcuts (`!yt`, `!w`, `!gh`, `!so`, and more).
 - **Smart tools:** safe arithmetic parser (no eval), unit conversion, HEX/RGB/HSL color studio, text counts/transforms/export. They work offline.
 - **Smart Downloads:** verified HTTP byte-range downloads with up to 8, 16, or 32 parts per file (8 by default), size-adaptive part counts, ordered assembly, single-stream fallback, actual bytes/speed, 1–4 queued files at a time, a shared 32-request budget, cancel/retry, and persisted history. Includes a same-origin sample file to try. Browser connection limits still apply.
-- **Tab workspace:** up to 30 local tabs for searches and Loxiro pages, independent search drafts, pin/unpin, duplicate, reorder, close/reopen (last 10), searchable mobile overview, confirmed bulk close, and automatic local session restoration. Website links still open externally.
+- **Tab workspace:** up to 30 local tabs for searches and Veilix pages, independent search drafts, pin/unpin, duplicate, reorder, close/reopen (last 10), searchable mobile overview, confirmed bulk close, and automatic local session restoration. Website links still open externally.
 - **Spaces:** create colored collections, save links, filter, delete, and copy. Deleting a space moves its links to Reading list.
 - **Settings:** light/dark/system theme, reduced motion, recent-history toggle, new-tab preference, JSON data export **and restore**, clear data.
 - **PWA:** manifest, generated icons, offline app shell, browser installation instructions and native install prompt where supported.
@@ -79,7 +79,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Optionally set `LOXIRO_BASE_URL` (default `http://localhost:4173`) or `CHROMIUM_EXECUTABLE_PATH` for an existing Chromium binary. Browser smoke tests use a **mock unified-search API response** for repeatable rendering tests; live third-party search quality/availability is not simulated as a verified result.
+Optionally set `VEILIX_BASE_URL` (default `http://localhost:4173`) or `CHROMIUM_EXECUTABLE_PATH` for an existing Chromium binary. Browser smoke tests use a **mock unified-search API response** for repeatable rendering tests; live third-party search quality/availability is not simulated as a verified result.
 
 The smoke suite checks unified search → attribution → save, reload persistence, creating a space, all four tools, a real streamed same-origin file download, theme persistence, automated accessibility on Home/Settings, responsive overflow (360/390/768/1440), runtime exceptions, service worker installation, offline reload, and offline calculation.
 
@@ -123,8 +123,8 @@ The sandbox's raw `*.e2b.app` URL may require platform traffic authentication. P
 ## Planning archive
 
 - [Original project plan](docs/PROJECT_PLAN.md) — historical planning draft, not the current feature status.
-- [Editable concept board](docs/assets/loxiro-concept.svg)
-- [Concept PNG](docs/assets/loxiro-concept.png)
+- [Editable concept board](docs/assets/veilix-concept.svg)
+- [Concept PNG](docs/assets/veilix-concept.png)
 
 The initial plan proposed demo results. The implementation now uses **server-side unified search with honest source coverage**. Spaces are implemented rather than left as a teaser.
 
@@ -149,23 +149,23 @@ Open **Downloads → Parts per file** and select **8** (recommended), **16**, **
 - Eligible files use `min(selected limit, available queue budget, floor(size / 1 MiB))` balanced, adjacent ranges. Files under 2 MiB use one stream. There are at most 32 reserved request slots across the queue; unused slots are released after detection. This is a request/worker budget, **not 32 guaranteed TCP connections**: browser per-origin limits and HTTP/2/3 scheduling control network parallelism. A controlled Chromium HTTP/1.1 test observed 6 overlapping requests even with 32 parts.
 - Every part sends `If-Range` with the probe's strong ETag. Only exact `206` responses with the expected start/end/total, matching strong ETag and resolved URL, no visible content encoding, and exact byte count are assembled. Parts are placed in original byte order, regardless of completion order. If any part fails these checks, siblings are aborted, partial buffers discarded, and **one fresh normal GET** is attempted. Cancellation never triggers fallback or saving. No automatic part retry loop or persistent resume is claimed.
 - Cross-origin sources must allow the app origin (or `*` for these credential-free requests), `GET` and `OPTIONS`, and request headers `Range, If-Range`; expose response headers `Content-Range, ETag` (and `Content-Encoding` when present). Sources without a strong/exposed ETag or usable ranges fall back to one stream. Sources that block CORS entirely still need **Open source**. `Accept-Ranges` alone is not trusted. Authentication cookies are never sent, and this does not bypass DRM, access controls, or CORS.
-- Files are still buffered in memory, capped at **200 MiB (shown as 200 MB in the interface) per file**; simultaneous files can use more memory. Keep Loxiro open. No disk-streaming, background completion, pause/resume, or guaranteed speed multiplier is promised. More parts can be slower, especially on small files or saturated connections. No general internet acceleration benchmark has been performed.
+- Files are still buffered in memory, capped at **200 MiB (shown as 200 MB in the interface) per file**; simultaneous files can use more memory. Keep Veilix open. No disk-streaming, background completion, pause/resume, or guaranteed speed multiplier is promised. More parts can be slower, especially on small files or saturated connections. No general internet acceleration benchmark has been performed.
 
 `npm test` includes range partitioning, 8/16/32-way concurrent requests, ordered SHA-256 comparisons, validator/range errors, truncation/overflow, fallback, limits, cancellation, retry, and queue-budget tests. `npm run test:downloads` uses a real local cross-origin HTTP server and browser, including CORS preflights and SHA-256 checks of **saved files**, not mocked fetch responses. It also checks failed-source fallback, active cancellation, honest CORS failure, preference persistence, light/dark accessibility, and responsive layout. This controlled fixture establishes correctness, **not real-world speed gains or arbitrary source compatibility**.
 
 
 ### Tab management (v0.6)
 
-Use **+** in the tab strip to create a Loxiro tab. The **stack icon / tab count** opens the searchable tab overview on desktop and mobile.
+Use **+** in the tab strip to create a Veilix tab. The **stack icon / tab count** opens the searchable tab overview on desktop and mobile.
 
-- Keep up to **30 open tabs** with independent submitted searches, search drafts, current Loxiro page, and search engine routing context. Switch without overwriting another tab. Pin important tabs, duplicate a tab, reorder within the pinned or unpinned group using left/right controls, close individual tabs, and reopen the last **10** closed tabs.
+- Keep up to **30 open tabs** with independent submitted searches, search drafts, current Veilix page, and search engine routing context. Switch without overwriting another tab. Pin important tabs, duplicate a tab, reorder within the pinned or unpinned group using left/right controls, close individual tabs, and reopen the last **10** closed tabs.
 - Pinned tabs stay first and are protected from **confirmed bulk closing**. They can still be closed explicitly. Closing the final tab creates a blank one instead of closing the app. Reopening restores the route/draft/pin, not an external browser window.
 - Sessions restore from `loxiro:v2:tabs` on this device. A matching explicit hash route retains an unsent draft on reload; direct links navigate the relevant/current workspace tab without erasing other tabs. URL hashes include the tab ID so browser back/forward can select an existing referenced tab. This is one browser history, not a separate full navigation stack for each workspace tab.
 - Tabs **save their queries and drafts locally even when recent-search history is disabled**. JSON export includes open/closed tab sessions. **Clear all data** deletes both. Storage-disabled contexts keep usable in-memory tabs without promising restoration. There is no account, cross-device sync, or cross-window conflict resolution; windows share the local storage key, so the latest persisted window wins on a later reload.
 - Only the active search is fetched. Switching cancels pending work; late responses cannot replace another tab's results. Fresh responses can be reused from a bounded **30-entry / 60-second in-memory cache**, and manual retries bypass it. Results themselves are not stored in the tab session or restored offline as a complete result archive.
-- Downloads remain app-wide and continue when their originating workspace tab closes, while Loxiro remains open. Smart-tool input state, Spaces filters, settings, scroll position, and download tasks are shared app state, **not independent browser documents per tab**. External sites still open in your browser according to Settings. Loxiro cannot inspect, embed arbitrary sites in, or control actual Chrome/Safari tabs.
+- Downloads remain app-wide and continue when their originating workspace tab closes, while Veilix remains open. Smart-tool input state, Spaces filters, settings, scroll position, and download tasks are shared app state, **not independent browser documents per tab**. External sites still open in your browser according to Settings. Veilix cannot inspect, embed arbitrary sites in, or control actual Chrome/Safari tabs.
 
-Keyboard controls: **Alt+Shift+N** new tab; **Alt+Shift+W** close current Loxiro tab; **Alt+Shift+T** reopen. With a tab title focused, **Left/Right/Home/End** switch tabs and **Delete** closes it. These do not replace native Ctrl/Cmd+T/W browser shortcuts; OS/browser interception can still apply. Tab actions are also available as buttons. Shortcuts do not operate behind an open dialog.
+Keyboard controls: **Alt+Shift+N** new tab; **Alt+Shift+W** close current Veilix tab; **Alt+Shift+T** reopen. With a tab title focused, **Left/Right/Home/End** switch tabs and **Delete** closes it. These do not replace native Ctrl/Cmd+T/W browser shortcuts; OS/browser interception can still apply. Tab actions are also available as buttons. Shortcuts do not operate behind an open dialog.
 
 Validation: `npm test` includes tab reducer/session-sanitization/persistence and isolated-search race/cache tests. `npm run test:tabs` adds end-to-end tab operations, local session/draft restoration, browser back/forward, keyboard/focus behavior, confirmed bulk closing, 30-tab mobile layout/cap, clear-all, closed-history bounds, website-link scope, download continuation after tab closure, both-theme axe checks, and 360/390/768/1440 responsive checks. Search API fixtures make these UI tests repeatable; they are not live-provider quality tests. The existing app and real cross-origin download suites still pass.
 
@@ -186,7 +186,7 @@ Web validation: **198 tests / 11 files**, typecheck/build, existing browser/offl
 
 ### Backup restore (v0.8)
 
-Export alone was only half a data story: a backup you cannot put back is not a backup. **Settings → Your data → Bring it back** restores a `loxiro-backup.json` produced by the Export button.
+Export alone was only half a data story: a backup you cannot put back is not a backup. **Settings → Your data → Bring it back** restores a `veilix-backup.json` produced by the Export button.
 
 - **Two modes, chosen before you pick a file.** *Merge* (default) only adds items you do not already have and never removes anything. *Replace* swaps the sections the file contains and drops the previous contents of those sections; sections the file does **not** contain are left untouched.
 - **Confirm before writing.** Choosing a file opens a dialog listing exactly what the file holds (links, recent searches, spaces, open/closed tabs, settings) plus its export timestamp. Nothing is written until you confirm, and Cancel changes nothing.

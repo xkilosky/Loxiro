@@ -1,6 +1,6 @@
-# Loxiro Android browser preview
+# Veilix Android browser preview
 
-Native Android controls stay **outside website WebViews**, so entering a website or opening a user-tapped `_blank` link keeps Loxiro's tab switcher visible. This is a separate installed app, not a capability the hosted PWA can provide.
+Native Android controls stay **outside website WebViews**, so entering a website or opening a user-tapped `_blank` link keeps Veilix's tab switcher visible. This is a separate installed app, not a capability the hosted PWA can provide.
 
 ## Build / install
 
@@ -13,14 +13,14 @@ cd android
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-The **Android browser preview** GitHub workflow builds an installable debug APK (`loxiro-android-preview` artifact, retained 14 days), runs JVM tests/lint, and runs real WebView tests on an Android 15 emulator. GitHub sign-in may be required to download artifacts. A debug APK is for evaluation, not a Play Store release; the ephemeral CI debug signing key can change between builds, so a later preview may require uninstalling the old one (which deletes app data). A production release needs a stable owner-managed signing key, not credentials shared in chat.
+The **Android browser preview** GitHub workflow builds an installable debug APK (`veilix-android-preview` artifact, retained 14 days), runs JVM tests/lint, and runs real WebView tests on an Android 15 emulator. GitHub sign-in may be required to download artifacts. A debug APK is for evaluation, not a Play Store release; the ephemeral CI debug signing key can change between builds, so a later preview may require uninstalling the old one (which deletes app data). A production release needs a stable owner-managed signing key, not credentials shared in chat.
 
 ## Native tabs
 
 - A single **56dp toolbar** with back, address/search, tab count and menu leaves the rest of the screen for websites. Tap the tab count for a **full-screen visual card grid** and a thumb-friendly **New tab** button. All/Pinned/Closed filters, a highlighted current card, per-card close/menu controls, undo close and individual closed-tab restore keep management out of the website viewport. No second search field. Pin/duplicate/reorder and bulk close remain available. Home, forward and reload/stop live in the overflow menu. All persistent touch targets are 48dp; no always-expanded tab strip.
 - Up to **12 website tabs**, last **10 closed URLs** restorable. Only the latest **3 WebViews** stay live to bound memory; evicted tabs reload their URL. Back history, forms, JS state and scroll position are **not** preserved after eviction/process recreation.
 - Session URLs/titles/pins are app-private SharedPreferences metadata. Native Clear browser data deletes tab metadata, cookies, WebStorage and WebView cache; downloaded public files stay. Native sessions are separate from the PWA's local workspace. Normal cookies are shared across this app's WebViews; third-party cookies are disabled.
-- Searches use the existing hosted Loxiro unified search. Website requests originate from the Android device and use Android System WebView, not the search server. Internet access and a current Android System WebView are required. Loxiro's existing provider/key limitations remain unchanged.
+- Searches use the existing hosted Veilix unified search. Website requests originate from the Android device and use Android System WebView, not the search server. Internet access and a current Android System WebView are required. Veilix's existing provider/key limitations remain unchanged.
 
 ## Visual tab switcher (preview.3)
 
@@ -50,7 +50,7 @@ Build/lint/JVM tests and Android 15 emulator tests must pass before delivery. Na
 - **Find in page:** ⋮ → Find in page. On-page highlighting, match count, next/previous and close; this temporary tool is not a second web-search bar. Queries are cleared on navigation/tab changes and are not persisted.
 - **Share page:** ⋮ → Share page opens Android’s chooser with the current HTTP(S) URL. No private app files or browser-session export is shared.
 - **Open links from other apps:** HTTP(S) BROWSABLE intents and text/plain shared links open in a new native tab, preserving existing tabs and respecting the 12-tab cap. Credential-bearing/unsafe schemes are rejected. Recreation does not replay the incoming intent. `singleTask` routes new incoming links to the existing browser instance.
-- **Default browser:** ⋮ → Default browser or Browser settings → Default browser requests Android’s browser role (Android 10+), with a fallback to Android’s default-app settings. This requires user approval; the app never assigns itself silently. The external-browser action explicitly excludes Loxiro to avoid self-opening loops if it is the default.
+- **Default browser:** ⋮ → Default browser or Browser settings → Default browser requests Android’s browser role (Android 10+), with a fallback to Android’s default-app settings. This requires user approval; the app never assigns itself silently. The external-browser action explicitly excludes Veilix to avoid self-opening loops if it is the default.
 
 Instrumentation uses real WebViews and trusted touch events, a tiny local MP4 playback fixture, and a separate test-only document provider to verify website FileReader access. Picker responses, share-sheet and browser-role handoffs are stubbed: tests verify app integration, not every OEM picker/share target or real user role approval. There is no physical-device/all-site compatibility claim.
 
@@ -60,7 +60,7 @@ No JavaScript-to-native interface, native filesystem bridge, remote native-code 
 
 This is an **early WebView browser preview, not a hardened Chrome replacement**. Some OAuth/sign-ins reject embedded WebViews. Live camera/mic capture, geolocation and blob/data exports remain unsupported. User-selected file/photo uploads and full-screen video are now supported; see below. Background WebViews receive `onPause`, not a guaranteed full process freeze. Direct HTTP(S) downloads use Android Download Manager after explicit confirmation, without forwarding session cookies. They do **not** use the web app's 8–32-part downloader. Blob downloads/JSON and text exports are web-only in this preview; use the original source in an external browser for unsupported workflows. The app requests only Internet permission; no broad storage/camera/mic permission is added.
 
-The hosted app recognizes the `LoxiroAndroid/0.7` user-agent presentation marker and hides its *web workspace* tab strip and its Home/results search inputs, avoiding duplicate controls. The native top address bar is the only search/URL input; Home shows a short hint and results show the current query as a heading. The ordinary PWA keeps its own search input. The marker grants no privileges, and other sites receive no native bridge. Native browser controls remain visible above the WebView except during a user-requested full-screen media view, which has a native exit button and Back-to-exit behavior.
+The hosted app recognizes the `VeilixAndroid/0.8` user-agent presentation marker (and the legacy `LoxiroAndroid/0.7` token sent by APKs installed before the rename) and hides its *web workspace* tab strip and its Home/results search inputs, avoiding duplicate controls. The native top address bar is the only search/URL input; Home shows a short hint and results show the current query as a heading. The ordinary PWA keeps its own search input. The marker grants no privileges, and other sites receive no native bridge. Native browser controls remain visible above the WebView except during a user-requested full-screen media view, which has a native exit button and Back-to-exit behavior.
 
 ## Verification
 

@@ -4,10 +4,10 @@ const assets = readdirSync('dist/assets').map(f=>`/assets/${f}`);
 const hash = createHash('sha256').update(readFileSync('dist/index.html')).digest('hex').slice(0,12);
 const files = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', ...assets];
 writeFileSync('dist/sw.js', `
-const CACHE = 'loxiro-${hash}';
+const CACHE = 'veilix-${hash}';
 const SHELL = ${JSON.stringify(files)};
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL))); });
-self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('loxiro-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
+self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>/^(veilix|veilix)-/.test(k)&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method!=='GET' || url.origin!==self.location.origin) return;

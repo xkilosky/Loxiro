@@ -1,4 +1,4 @@
-package app.loxiro.browser;
+package app.veilix.browser;
 
 import android.content.Context;
 import android.content.SharedPreferences;

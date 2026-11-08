@@ -1,4 +1,4 @@
-package app.loxiro.browser;
+package app.veilix.browser;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -94,12 +94,12 @@ final class BrowserSettingsDialog extends Dialog {
         heading("Accessibility");
         toggle("Roomier address bar","Larger address text and a 72dp toolbar instead of 56dp. Uses a little more website space.",settings.largeControls,value->settings.largeControls=value);
         action("Android accessibility settings","TalkBack, magnification and other device accessibility services are managed by Android.",v->actions.accessibility());
-        action("Android display settings","Adjust your device’s font and display size. Loxiro’s native text follows the system font scale.",v->actions.display());
+        action("Android display settings","Adjust your device’s font and display size. Veilix’s native text follows the system font scale.",v->actions.display());
         heading("Tabs & privacy");
         toggle("Show tab previews","Last-viewed snapshots stay in memory only. Turn off to hide page contents in the tab switcher and discard existing previews.",settings.tabPreviews,value->settings.tabPreviews=value);
         heading("Other");
-        action("Default browser","Ask Android to use Loxiro for website links. You choose whether to grant this role.",v->actions.defaultBrowser());
-        toggle("Keep screen awake","Keep the display on while Loxiro is in the foreground. May use more battery.",settings.keepScreenOn,value->settings.keepScreenOn=value);
+        action("Default browser","Ask Android to use Veilix for website links. You choose whether to grant this role.",v->actions.defaultBrowser());
+        toggle("Keep screen awake","Keep the display on while Veilix is in the foreground. May use more battery.",settings.keepScreenOn,value->settings.keepScreenOn=value);
         action("Android downloads","View files handled by Android’s system downloader.",v->actions.downloads());
         action("Clear browser data","Close native tabs and clear this app’s cookies, website storage and cache. Downloaded files and browser settings remain.",v->{dismiss();actions.clearData();});
         action("Reset browser settings","Restore zoom and these switches to defaults. Tabs, cookies and downloaded files stay.",v->new AlertDialog.Builder(getContext()).setTitle("Reset browser settings?").setMessage("Restore text size to 100%, enable pinch zoom and tab previews, use the compact toolbar, and turn off keep-awake? Your tabs and browser data stay.").setNegativeButton("Cancel",null).setPositiveButton("Reset",(d,w)->{

@@ -15,7 +15,7 @@ const backup = {
   exportedAt: '2026-10-26T00:00:00.000Z',
 };
 
-function fileFor(payload: unknown, name = 'loxiro-backup.json') {
+function fileFor(payload: unknown, name = 'veilix-backup.json') {
   return new File([JSON.stringify(payload)], name, { type: 'application/json' });
 }
 
@@ -47,7 +47,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 describe('restore from backup', () => {
   it('opens a confirmation before changing anything', async () => {
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Choose a Loxiro backup file'), { target: { files: [fileFor(backup)] } });
+    fireEvent.change(screen.getByLabelText('Choose a Veilix backup file'), { target: { files: [fileFor(backup)] } });
 
     expect(await screen.findByRole('heading', { name: 'Restore this backup?' })).toBeTruthy();
     // Counts come from the parsed file, before anything is written. The javascript: link is already excluded.
@@ -66,7 +66,7 @@ describe('restore from backup', () => {
     localStorage.setItem('loxiro:v2:saved', JSON.stringify([{ id: 'old', title: 'Old', url: 'https://example.com/old', spaceId: 'inbox', createdAt: 1 }]));
     render(<App />);
 
-    fireEvent.change(screen.getByLabelText('Choose a Loxiro backup file'), { target: { files: [fileFor(backup)] } });
+    fireEvent.change(screen.getByLabelText('Choose a Veilix backup file'), { target: { files: [fileFor(backup)] } });
     fireEvent.click(await screen.findByText('Merge into my data'));
 
     await waitFor(() => expect(screen.getByRole('status').textContent).toContain('1 link'));
@@ -90,7 +90,7 @@ describe('restore from backup', () => {
     render(<App />);
 
     const { recents: _recents, ...withoutRecents } = backup;
-    fireEvent.change(screen.getByLabelText('Choose a Loxiro backup file'), { target: { files: [fileFor(withoutRecents)] } });
+    fireEvent.change(screen.getByLabelText('Choose a Veilix backup file'), { target: { files: [fileFor(withoutRecents)] } });
     const mode = await screen.findByLabelText('Restore mode');
     fireEvent.change(mode, { target: { value: 'replace' } });
     fireEvent.click(await screen.findByText('Replace my data'));
@@ -105,7 +105,7 @@ describe('restore from backup', () => {
     localStorage.setItem('loxiro:v2:saved', JSON.stringify([{ id: 'old', title: 'Old', url: 'https://example.com/old', spaceId: 'inbox', createdAt: 1 }]));
     render(<App />);
 
-    fireEvent.change(screen.getByLabelText('Choose a Loxiro backup file'), {
+    fireEvent.change(screen.getByLabelText('Choose a Veilix backup file'), {
       target: { files: [new File(['{not json'], 'broken.json', { type: 'application/json' })] },
     });
 
@@ -114,17 +114,17 @@ describe('restore from backup', () => {
     expect(stored('saved')).toHaveLength(1);
   });
 
-  it('rejects JSON that is not a Loxiro backup', async () => {
+  it('rejects JSON that is not a Veilix backup', async () => {
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Choose a Loxiro backup file'), {
+    fireEvent.change(screen.getByLabelText('Choose a Veilix backup file'), {
       target: { files: [fileFor({ unrelated: true })] },
     });
-    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('no Loxiro data'));
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('no Veilix data'));
   });
 
   it('restores the tab session so the restored tab is open afterwards', async () => {
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Choose a Loxiro backup file'), { target: { files: [fileFor(backup)] } });
+    fireEvent.change(screen.getByLabelText('Choose a Veilix backup file'), { target: { files: [fileFor(backup)] } });
     fireEvent.click(await screen.findByText('Merge into my data'));
 
     await waitFor(() => expect(stored('tabs')?.tabs.some((t: { id: string }) => t.id === 'restored-tab')).toBe(true));

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the self-contained original Loxiro plan page and the downloadable bundle.
+"""Generate the self-contained original Veilix plan page and the downloadable bundle.
 
 Run from the repository root:
     python3 scripts/generate-preview.py
@@ -18,8 +18,8 @@ import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-png = (ROOT / "docs/assets/loxiro-concept.png").read_bytes()
-svg = (ROOT / "docs/assets/loxiro-concept.svg").read_bytes()
+png = (ROOT / "docs/assets/veilix-concept.png").read_bytes()
+svg = (ROOT / "docs/assets/veilix-concept.svg").read_bytes()
 md = (ROOT / "docs/PROJECT_PLAN.md").read_bytes()
 readme = (ROOT / "README.md").read_bytes()
 
@@ -27,12 +27,12 @@ readme = (ROOT / "README.md").read_bytes()
 # embedded in the page), which avoids a circular dependency.
 buffer = io.BytesIO()
 with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-    archive.writestr("loxiro-preview/README.md", readme)
-    archive.writestr("loxiro-preview/docs/PROJECT_PLAN.md", md)
-    archive.writestr("loxiro-preview/docs/assets/loxiro-concept.svg", svg)
-    archive.writestr("loxiro-preview/docs/assets/loxiro-concept.png", png)
+    archive.writestr("veilix-preview/README.md", readme)
+    archive.writestr("veilix-preview/docs/PROJECT_PLAN.md", md)
+    archive.writestr("veilix-preview/docs/assets/veilix-concept.svg", svg)
+    archive.writestr("veilix-preview/docs/assets/veilix-concept.png", png)
 zip_bytes = buffer.getvalue()
-(ROOT / "public/loxiro-plan-preview.zip").write_bytes(zip_bytes)
+(ROOT / "public/veilix-plan-preview.zip").write_bytes(zip_bytes)
 
 b64 = lambda data: base64.b64encode(data).decode("ascii")
 PNG, SVG, MD, ZIP = b64(png), b64(svg), b64(md), b64(zip_bytes)
@@ -42,7 +42,7 @@ TEMPLATE = r"""<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Loxiro — Preview &amp; Downloads</title>
+<title>Veilix — Preview &amp; Downloads</title>
 <style>
 :root{--paper:#F7F6F2;--surface:#fff;--ink:#14151A;--muted:#6E6F74;--faint:#A9AAAE;--line:#E7E6E1;--accent:#3B5BFF;--accent-soft:#EDF0FF;}
 *{box-sizing:border-box}
@@ -77,18 +77,18 @@ footer{margin-top:48px;color:var(--faint);font-size:12px;text-align:center}
 <body>
 <div class="wrap">
   <div class="badge">Planning preview · v0.1</div>
-  <header><h1>Loxiro</h1><span class="dot"></span><span class="offline">● Self-contained · works offline</span></header>
+  <header><h1>Veilix</h1><span class="dot"></span><span class="offline">● Self-contained · works offline</span></header>
   <p class="tag">Search, without the noise. — The concept board and full plan, ready to preview or download. Everything on this page is embedded, so downloads work even without a connection.</p>
 
   <div class="card">
-    <img id="concept" alt="Loxiro home screen concept">
+    <img id="concept" alt="Veilix home screen concept">
   </div>
 
   <div class="buttons">
     <button class="btn primary" onclick="dlPage()">Download this page (.html)</button>
-    <button class="btn" onclick="dl('loxiro-plan-preview.zip','application/zip',ZIP)">Download plan bundle (.zip)</button>
-    <button class="btn" onclick="dl('loxiro-concept.png','image/png',PNG)">Download PNG</button>
-    <button class="btn" onclick="dl('loxiro-concept.svg','image/svg+xml',SVG)">Download SVG</button>
+    <button class="btn" onclick="dl('veilix-plan-preview.zip','application/zip',ZIP)">Download plan bundle (.zip)</button>
+    <button class="btn" onclick="dl('veilix-concept.png','image/png',PNG)">Download PNG</button>
+    <button class="btn" onclick="dl('veilix-concept.svg','image/svg+xml',SVG)">Download SVG</button>
     <button class="btn" onclick="dl('PROJECT_PLAN.md','text/markdown;charset=utf-8',MD)">Download plan (.md)</button>
   </div>
 
@@ -105,11 +105,11 @@ footer{margin-top:48px;color:var(--faint);font-size:12px;text-align:center}
 
   <details>
     <summary>View the editable SVG source</summary>
-    <div class="svgbox"><img id="svgPreview" alt="Loxiro concept SVG"></div>
+    <div class="svgbox"><img id="svgPreview" alt="Veilix concept SVG"></div>
     <pre id="svgText" style="max-height:260px"></pre>
   </details>
 
-  <footer>Loxiro · Plan draft v0.1 · 2026-10-24</footer>
+  <footer>Veilix · Plan draft v0.1 · 2026-10-24</footer>
 </div>
 
 <script>
@@ -133,7 +133,7 @@ function save(blob, name){
 function dl(name, mime, b64){ save(new Blob([bytes(b64)], {type: mime}), name); }
 function dlPage(){
   const src = '<!doctype html>\n' + document.documentElement.outerHTML;
-  save(new Blob([src], {type: 'text/html;charset=utf-8'}), 'loxiro-preview.html');
+  save(new Blob([src], {type: 'text/html;charset=utf-8'}), 'veilix-preview.html');
 }
 
 document.getElementById('concept').src = 'data:image/png;base64,' + PNG;
@@ -154,4 +154,4 @@ page = (
 (ROOT / "public/plan.html").write_text(page, encoding="utf-8")
 
 print(f"index.html: {len(page)} chars")
-print(f"loxiro-plan-preview.zip: {len(zip_bytes)} bytes")
+print(f"veilix-plan-preview.zip: {len(zip_bytes)} bytes")

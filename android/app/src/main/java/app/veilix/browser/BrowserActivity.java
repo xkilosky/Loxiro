@@ -1,4 +1,4 @@
-package app.loxiro.browser;
+package app.veilix.browser;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -222,7 +222,7 @@ public final class BrowserActivity extends Activity {
         settings.setUseWideViewPort(true);settings.setLoadWithOverviewMode(true);
         configureReading(settings);
         settings.setSupportMultipleWindows(true);settings.setJavaScriptCanOpenWindowsAutomatically(false);
-        settings.setUserAgentString(settings.getUserAgentString()+" LoxiroAndroid/0.7");
+        settings.setUserAgentString(settings.getUserAgentString()+" VeilixAndroid/0.8");
         CookieManager.getInstance().setAcceptThirdPartyCookies(view,false);
         view.setWebViewClient(new WebViewClient(){
             @Override public boolean shouldOverrideUrlLoading(WebView web,WebResourceRequest request) {
@@ -360,7 +360,7 @@ public final class BrowserActivity extends Activity {
         }).show();
     }
     private void showOptions() {
-        new AlertDialog.Builder(this).setTitle("Loxiro Android Preview").setItems(new String[]{"Browser settings","Find in page","Share page","Default browser","Website tabs","Reopen last closed tab","Open page in external browser","Android downloads","Close unpinned tabs","Clear browser data","About this preview","Home","Forward","Reload / stop","New tab"},(d,choice)->{
+        new AlertDialog.Builder(this).setTitle("Veilix Android Preview").setItems(new String[]{"Browser settings","Find in page","Share page","Default browser","Website tabs","Reopen last closed tab","Open page in external browser","Android downloads","Close unpinned tabs","Clear browser data","About this preview","Home","Forward","Reload / stop","New tab"},(d,choice)->{
             if(choice==0){showSettings();return;}
             if(choice==1){showFind();return;}
             if(choice==2){sharePage();return;}
@@ -378,7 +378,7 @@ public final class BrowserActivity extends Activity {
                 for(TabSession.Tab tab:new ArrayList<>(session.tabs))if(!tab.pinned){previews.remove(tab.id);destroyPage(tab.id);session.close(tab.id,home);}select(session.activeId);
             }).show();
             if(which==5)confirmClearData();
-            if(which==6)new AlertDialog.Builder(this).setTitle("Real website tabs, native controls").setMessage("Android WebView preview, Android 10+. Website tabs stay under Loxiro's toolbar. Some embedded sign-ins, camera/mic capture and blob/data downloads remain unsupported. File/photo selection, full-screen media, link sharing and Find in Page are supported. Direct HTTP(S) file downloads use Android Download Manager after confirmation, not the web app's parallel downloader. Use your external browser for unsupported workflows. This is not a hardened Chrome replacement.").setPositiveButton("OK",null).show();
+            if(which==6)new AlertDialog.Builder(this).setTitle("Real website tabs, native controls").setMessage("Android WebView preview, Android 10+. Website tabs stay under Veilix's toolbar. Some embedded sign-ins, camera/mic capture and blob/data downloads remain unsupported. File/photo selection, full-screen media, link sharing and Find in Page are supported. Direct HTTP(S) file downloads use Android Download Manager after confirmation, not the web app's parallel downloader. Use your external browser for unsupported workflows. This is not a hardened Chrome replacement.").setPositiveButton("OK",null).show();
         }).show();
     }
     private void buildFindBar(LinearLayout root){
@@ -448,14 +448,14 @@ public final class BrowserActivity extends Activity {
             targets.add(new Intent(link).setPackage(pkg));
         }
         if(targets.isEmpty()){toast("No other browser or link handler is installed.");return;}
-        Intent chooser=Intent.createChooser(targets.remove(0),"Open outside Loxiro");chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS,targets.toArray(new Intent[0]));
+        Intent chooser=Intent.createChooser(targets.remove(0),"Open outside Veilix");chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS,targets.toArray(new Intent[0]));
         try{startActivity(chooser);}catch(RuntimeException e){toast("Could not open another browser.");}
     }
     private void requestDefaultBrowser(){
         try{
             RoleManager roles=getSystemService(RoleManager.class);
             if(roles!=null&&roles.isRoleAvailable(RoleManager.ROLE_BROWSER)){
-                if(roles.isRoleHeld(RoleManager.ROLE_BROWSER)){toast("Loxiro is already your default browser.");return;}
+                if(roles.isRoleHeld(RoleManager.ROLE_BROWSER)){toast("Veilix is already your default browser.");return;}
                 startActivityForResult(roles.createRequestRoleIntent(RoleManager.ROLE_BROWSER),702);return;
             }
             openSystemSettings(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS);

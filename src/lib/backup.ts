@@ -142,7 +142,7 @@ function cleanTabs(raw: unknown): TabSession | null {
 }
 
 /**
- * Parses and sanitizes a Loxiro backup file. Nothing here touches storage or the DOM:
+ * Parses and sanitizes a Veilix backup file. Nothing here touches storage or the DOM:
  * callers decide what to do with the result.
  */
 export function parseBackup(raw: string): BackupParse {
@@ -150,10 +150,10 @@ export function parseBackup(raw: string): BackupParse {
   if (raw.length > MAX_BACKUP_BYTES) return { ok: false, error: 'That backup is larger than 5 MB. Export again or split it up.' };
   let parsed: unknown;
   try { parsed = JSON.parse(raw); } catch { return { ok: false, error: 'That file is not valid JSON.' }; }
-  if (!isObject(parsed)) return { ok: false, error: 'A Loxiro backup is a JSON object.' };
+  if (!isObject(parsed)) return { ok: false, error: 'A Veilix backup is a JSON object.' };
   const known = ['settings', 'spaces', 'saved', 'recents', 'tabs'];
   const present = known.filter(k => parsed[k] !== undefined) as BackupData['present'];
-  if (!present.length) return { ok: false, error: 'This JSON has no Loxiro data in it.' };
+  if (!present.length) return { ok: false, error: 'This JSON has no Veilix data in it.' };
 
   const warnings: string[] = [];
   const tabs = cleanTabs(parsed.tabs);

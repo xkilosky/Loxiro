@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
-const BASE = process.env.LOXIRO_BASE_URL || 'http://localhost:4173';
+const BASE = process.env.VEILIX_BASE_URL || 'http://localhost:4173';
 const MB = 1024 * 1024;
 const stats = new Map();
 const data = (start, length) => {const b = Buffer.alloc(length); for (let i=0;i<length;i++) b[i]=(start+i)%251; return b;};
@@ -77,7 +77,7 @@ try {
   for (const width of [360,390,768,1440]) {await page.setViewportSize({width,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Download screen overflow at ${width}`);}
   await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'Toggle light and dark theme'}).click();await page.waitForTimeout(400);
   const darkAxe=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.equal(darkAxe.violations.length,0,JSON.stringify(darkAxe.violations));
-  await page.screenshot({path:'/tmp/loxiro-smart-download.png',fullPage:true});assert.deepEqual(errors,[]);
+  await page.screenshot({path:'/tmp/veilix-smart-download.png',fullPage:true});assert.deepEqual(errors,[]);
   console.log('PASS download light/dark accessibility, responsive layout, preference persistence, no runtime exceptions');
 } finally {
   if (browser) await browser.close();

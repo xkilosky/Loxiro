@@ -298,7 +298,7 @@ export function parseColor(input: string): ColorInfo | null {
     hex: `#${full.toUpperCase()}`,
     rgb: `rgb(${r}, ${g}, ${b})`,
     hsl: `hsl(${Math.round(h)}, ${Math.round(sat * 100)}%, ${Math.round(l * 100)}%)`,
-    css: `--loxiro-accent: #${full.toUpperCase()};`,
+    css: `--veilix-accent: #${full.toUpperCase()};`,
     luminance: Math.round(lum * 1000) / 1000,
     suggestedText: lum > 0.45 ? '#14151A' : '#FFFFFF',
   };

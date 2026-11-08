@@ -1,4 +1,4 @@
-package app.loxiro.browser;
+package app.veilix.browser;
 
 import java.net.URI;
 import java.net.URLEncoder;

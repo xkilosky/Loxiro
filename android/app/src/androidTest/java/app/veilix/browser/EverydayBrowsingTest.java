@@ -1,4 +1,4 @@
-package app.loxiro.browser;
+package app.veilix.browser;
 
 import android.app.Activity;
 import android.app.Instrumentation;
@@ -91,13 +91,13 @@ public class EverydayBrowsingTest {
         scenario.onActivity(a->assertEquals(View.GONE,a.findViewById(R.id.find_bar).getVisibility()));
     }
     @Test public void selectedDocumentAndPhotoAreReadableByTheWebsite() throws Exception {
-        Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();Uri document=Uri.parse("content://app.loxiro.browser.test.files/hello.txt");
+        Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();Uri document=Uri.parse("content://app.veilix.browser.test.files/hello.txt");
         c.getContentResolver().call(document,"grant",c.getPackageName(),null);
         assertEquals("Fixture must supply a real read-only URI grant",android.content.pm.PackageManager.PERMISSION_GRANTED,c.checkUriPermission(document,android.os.Process.myPid(),android.os.Process.myUid(),Intent.FLAG_GRANT_READ_URI_PERMISSION));
         intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWith(new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(document).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)));
         touchElement("upload-file");intended(hasAction(Intent.ACTION_OPEN_DOCUMENT));scenario.onActivity(a->assertEquals("accepted:1",a.uploadStatus()));awaitTitle("upload:Selected document fixture");
         intended(hasAction(Intent.ACTION_OPEN_DOCUMENT));
-        Intents.release();Intents.init();Uri photo=Uri.parse("content://app.loxiro.browser.test.files/photo.png");
+        Intents.release();Intents.init();Uri photo=Uri.parse("content://app.veilix.browser.test.files/photo.png");
         intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWith(new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(photo).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)));
         touchElement("photo");awaitTitle("photo:1:image/png");
         scenario.onActivity(a->{assertFalse(page(a).getSettings().getAllowFileAccess());assertFalse(page(a).getSettings().getAllowContentAccess());});

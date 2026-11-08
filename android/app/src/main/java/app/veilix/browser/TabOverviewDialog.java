@@ -1,4 +1,4 @@
-package app.loxiro.browser;
+package app.veilix.browser;
 
 import android.app.Dialog;
 import android.content.res.ColorStateList;
@@ -67,7 +67,7 @@ final class TabOverviewDialog extends Dialog {
         Button done=button("‹","Return to website",v->dismiss());done.setTextSize(28);header.addView(done,new LinearLayout.LayoutParams(dp(48),dp(56)));
         LinearLayout heading=column();TextView title=text("Your tabs",26,INK);title.setTypeface(null,Typeface.BOLD);title.setAccessibilityHeading(true);heading.addView(title);
         count=text("",12,MUTED);heading.addView(count);header.addView(heading,new LinearLayout.LayoutParams(0,-2,1));
-        TextView brand=text("LOXIRO",10,ACCENT);brand.setLetterSpacing(.15f);header.addView(brand);root.addView(header);
+        TextView brand=text("VEILIX",10,ACCENT);brand.setLetterSpacing(.15f);header.addView(brand);root.addView(header);
         LinearLayout filters=row();filters.setPadding(dp(12),dp(16),dp(12),dp(12));
         all=button("All","All tabs",v->chooseFilter(0));all.setId(R.id.tab_filter_all);
         pinned=button("Pinned","Pinned tabs",v->chooseFilter(1));pinned.setId(R.id.tab_filter_pinned);

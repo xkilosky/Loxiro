@@ -1,8 +1,12 @@
+// Deliberately still the `loxiro:v2` namespace after the Veilix rename: these keys hold
+// every user's saved links, spaces, tabs and settings, so renaming them would silently
+// orphan that data on next load. Internal identifier only, never shown in the UI.
+const NAMESPACE = 'loxiro:v2';
 export function load<T>(key: string, fallback: T): T {
-  try { const raw = localStorage.getItem(`loxiro:v2:${key}`); return raw ? JSON.parse(raw) : fallback; } catch { return fallback; }
+  try { const raw = localStorage.getItem(`${NAMESPACE}:${key}`); return raw ? JSON.parse(raw) : fallback; } catch { return fallback; }
 }
 export function persist(key: string, value: unknown) {
-  try { localStorage.setItem(`loxiro:v2:${key}`, JSON.stringify(value)); } catch { /* Storage may be disabled. Session state remains usable. */ }
+  try { localStorage.setItem(`${NAMESPACE}:${key}`, JSON.stringify(value)); } catch { /* Storage may be disabled. Session state remains usable. */ }
 }
 export function uid() { return crypto.randomUUID(); }
 export function safeUrl(raw: string): string | null {

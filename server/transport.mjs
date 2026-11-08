@@ -13,7 +13,7 @@ export async function json(url, options={}) {
   const contact=env.PROVIDER_CONTACT_EMAIL;
   const response=await fetch(url,{
     ...request,signal:AbortSignal.timeout(4200),
-    headers:{'User-Agent':`Loxiro/0.4 (+https://github.com/xkilosky/Loxiro${contact?`; mailto:${contact}`:''})`,Accept:'application/json',...request.headers},
+    headers:{'User-Agent':`Veilix/0.8 (+https://github.com/xkilosky/Loxiro${contact?`; mailto:${contact}`:''})`,Accept:'application/json',...request.headers},
   });
   if(!response.ok){
     const limited=response.status===429||(response.status===403&&response.headers.get('x-ratelimit-remaining')==='0');
