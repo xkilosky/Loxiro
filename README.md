@@ -2,8 +2,8 @@
 
 **Search, without the noise.** A mobile-first, installable search companion with direct downloads and on-device smart tools.
 
-**Live app:** https://loxiro-preview.vercel.app/
-**Original concept & plan:** https://loxiro-preview.vercel.app/plan.html
+**Live app:** https://veilix-preview.vercel.app/
+**Original concept & plan:** https://veilix-preview.vercel.app/plan.html
 
 ## Unified search — broader research coverage
 
@@ -27,7 +27,7 @@ Research topics such as solar energy, photosynthesis, astronomy and agriculture 
 
 Plans change; verify current limits before signing up. No accounts, payments, or API keys are provisioned by Veilix. No paid provider is enabled by default. Providing a key does **not** prove its account is on a free plan; use a free plan, disable auto-upgrades/overages where available, and set provider-side hard limits. Veilix's in-memory protection does not enforce a monthly billing cap.
 
-To connect a free-tier web API, add its server-only variable in **Vercel → loxiro-preview → Settings → Environment Variables (Production)** and redeploy. Never use a `VITE_` prefix or commit actual credentials. Without a responding full-web integration, coverage remains limited; source statuses and API coverage metadata remain accurate. The results page does not display a coverage-warning or hosting-setup banner. Bing and Perplexity are not aggregation adapters; explicit bangs still navigate externally.
+To connect a free-tier web API, add its server-only variable in **Vercel → veilix-preview → Settings → Environment Variables (Production)** and redeploy. Never use a `VITE_` prefix or commit actual credentials. Without a responding full-web integration, coverage remains limited; source statuses and API coverage metadata remain accurate. The results page does not display a coverage-warning or hosting-setup banner. Bing and Perplexity are not aggregation adapters; explicit bangs still navigate externally.
 
 The query planner selects at most **8 sources/search**. Each upstream HTTP request has a **4.2-second deadline** and bounded body size. Successful results (including empty responses) have a **60-second memory-cache TTL**, shared in-flight queries are coalesced, and failures do not discard other sources. Per-source pacing, HTTP Retry-After, GitHub rate resets, Stack Exchange backoff, quota exhaustion, and a two-failure circuit breaker reduce quota waste. Multiple vendors relaying the same Google index count as one ranking vote while retaining attribution. Wikipedia, Wikidata and article-link discovery also share one Wikimedia vote.
 
@@ -118,7 +118,7 @@ public/manifest.webmanifest   PWA metadata
 
 ## Deployment
 
-The existing `loxiro-preview` Vercel project serves the app and search function. `npm run build` emits both generic `dist/` files and `.vercel/output/static/`. Optional server-only API credentials enable the full-web providers (see above). All production assets and font files are self-hosted. External requests happen on explicit search/navigation/download actions, not when loading Home. The app contains a serverless backend for search; no database is used.
+The existing `veilix-preview` Vercel project serves the app and search function. `npm run build` emits both generic `dist/` files and `.vercel/output/static/`. Optional server-only API credentials enable the full-web providers (see above). All production assets and font files are self-hosted. External requests happen on explicit search/navigation/download actions, not when loading Home. The app contains a serverless backend for search; no database is used.
 
 The sandbox's raw `*.e2b.app` URL may require platform traffic authentication. Prefer the stable Vercel app link above.
 
