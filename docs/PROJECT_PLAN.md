@@ -1,19 +1,19 @@
-# Loxiro — Project Plan
+# Veilix — Project Plan
 
 > **Status:** Draft v0.1 — planning only, no application code yet
 > **Date:** 2026-10-24
-> **Working name:** Loxiro
+> **Working name:** Veilix
 > **One-liner:** A calm, mobile-first search app that puts one beautiful box between you and the whole web.
 
 ---
 
 ## 0. TL;DR
 
-We are **not** rebuilding Chromium. Loxiro is a **search companion**: a mobile-first, installable web app (PWA) that feels like the best part of a browser — the new tab, the address bar, the instant answer — with none of the clutter. One search field, multiple engines, and a genuinely well-designed interface.
+We are **not** rebuilding Chromium. Veilix is a **search companion**: a mobile-first, installable web app (PWA) that feels like the best part of a browser — the new tab, the address bar, the instant answer — with none of the clutter. One search field, multiple engines, and a genuinely well-designed interface.
 
 The first deliverable is a **polished, clickable UI prototype** with realistic sample results, real engine links, working local history/saved items, and a complete design system. No backend, no API keys, no tracking.
 
-![Loxiro — concept 01: Home](assets/loxiro-concept.svg)
+![Veilix — concept 01: Home](assets/veilix-concept.svg)
 
 *Concept board 01 — Home screen. Created as an editable SVG so the visual direction stays version-controlled and text-crisp.*
 
@@ -23,13 +23,13 @@ The first deliverable is a **polished, clickable UI prototype** with realistic s
 
 **The problem:** Searching on mobile is noisy. Browser apps bury the search bar under tabs, cards, news feeds, and suggestions you didn't ask for. Switching engines means retyping the same query. Private engines are hidden behind settings.
 
-**The idea:** Loxiro opens directly into a single, focused search moment. Type once, choose (or swipe to) any engine, get clean results. Everything else — recents, saved pages, settings — stays one tap away and out of the way.
+**The idea:** Veilix opens directly into a single, focused search moment. Type once, choose (or swipe to) any engine, get clean results. Everything else — recents, saved pages, settings — stays one tap away and out of the way.
 
 **The feeling:** Quiet. Fast. Precise. The interface should feel like a well-made tool, not a content feed.
 
 **Positioning:**
 
-| | Chrome / Safari | DuckDuckGo / Brave | Perplexity / Arc Search | **Loxiro** |
+| | Chrome / Safari | DuckDuckGo / Brave | Perplexity / Arc Search | **Veilix** |
 |---|---|---|---|---|
 | Full browser | ✅ | partial | ❌ | ❌ (v0.1) |
 | Multi-engine switching | ❌ | ❌ | ❌ | ✅ |
@@ -72,7 +72,7 @@ Anything not listed here is still open — see §12.
 
 **Primary user:** Someone who searches dozens of times a day on their phone, values speed and privacy, and is tired of bloated browser start pages.
 
-| Job | Current friction | Loxiro answer |
+| Job | Current friction | Veilix answer |
 |---|---|---|
 | Look something up quickly | Browser start page is full of distractions | App opens straight into a focused search field |
 | Compare results across engines | Retype the query in each engine | Switch engine chips; the query is preserved |
@@ -233,11 +233,11 @@ All motion collapses to instant opacity changes under `prefers-reduced-motion: r
 ### Folder structure
 
 ```
-Loxiro/
+Veilix/
 ├── docs/
 │   ├── PROJECT_PLAN.md              ← this file
 │   └── assets/
-│       └── loxiro-concept.svg       ← visual north star
+│       └── veilix-concept.svg       ← visual north star
 ├── public/
 │   ├── icons/                      ← PWA icons (192, 512, maskable)
 │   └── manifest.webmanifest
@@ -347,7 +347,7 @@ External links always open with `target="_blank" rel="noopener noreferrer"`.
 
 ### Storage keys
 
-`loxiro:v1:settings`, `loxiro:v1:recents`, `loxiro:v1:saved`. A version prefix lets us migrate or wipe cleanly later. No PII ever leaves the device.
+`veilix:v1:settings`, `veilix:v1:recents`, `veilix:v1:saved`. A version prefix lets us migrate or wipe cleanly later. No PII ever leaves the device.
 
 ---
 

@@ -55,13 +55,13 @@ function parse(data: unknown) {
 }
 
 describe('backup parsing', () => {
-  it('rejects files that are not a Loxiro backup', () => {
+  it('rejects files that are not a Veilix backup', () => {
     expect(parseBackup('').ok).toBe(false);
     expect(parseBackup('   ').ok).toBe(false);
     expect(failMessage(parseBackup('not json{'))).toContain('not valid JSON');
     expect(failMessage(parseBackup('[1,2,3]'))).toContain('JSON object');
     expect(parseBackup('"a string"').ok).toBe(false);
-    expect(failMessage(parseBackup('{"unrelated":true}'))).toContain('no Loxiro data');
+    expect(failMessage(parseBackup('{"unrelated":true}'))).toContain('no Veilix data');
   });
 
   it('rejects oversized files before parsing them', () => {

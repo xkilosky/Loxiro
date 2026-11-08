@@ -2,14 +2,14 @@
 import {chromium} from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
-const BASE=process.env.LOXIRO_BASE_URL || 'http://localhost:4173';
+const BASE=process.env.VEILIX_BASE_URL || 'http://localhost:4173';
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_EXECUTABLE_PATH||undefined,args:['--no-sandbox'],headless:true});
 try {
- const context=await browser.newContext({viewport:{width:390,height:844},userAgent:'Mozilla/5.0 (Linux; Android 15; wv) AppleWebKit/537.36 LoxiroAndroid/0.7'});
+ const context=await browser.newContext({viewport:{width:390,height:844},userAgent:'Mozilla/5.0 (Linux; Android 15; wv) AppleWebKit/537.36 VeilixAndroid/0.8'});
  const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await context.route('https://files.example.org/*',r=>r.fulfill({contentType:'text/html',body:'<title>File destination fixture</title>Native shell handles real downloadable responses.'}));
  await page.route('**/api/search?*',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({query:'space science',results:[],providers:[],limitedWebCoverage:true,websiteCount:0,referenceCount:0,webSearchConfigured:false})}));
- await page.goto(BASE);assert.equal(await page.getByRole('navigation',{name:'Loxiro tabs',exact:true}).count(),0);
+ await page.goto(BASE);assert.equal(await page.getByRole('navigation',{name:'Veilix tabs',exact:true}).count(),0);
  assert.equal(await page.getByRole('combobox').count(),0);assert.equal(await page.locator('.searchbox').count(),0);
  await page.getByText('Search or enter a website in the address bar above.',{exact:true}).waitFor();
  await page.goto(BASE+'/?android-shell=1#results?q=space+science');
@@ -24,7 +24,7 @@ try {
  await page.getByRole('button',{name:'Settings',exact:false}).first().click();assert.equal(await page.getByRole('button',{name:'Export',exact:true}).isDisabled(),true);assert.equal(await page.getByLabel('Smart download parts').count(),0);await page.getByRole('button',{name:'Clear web-app data',exact:true}).click();await page.getByText('This clears web-app storage only.',{exact:false}).waitFor();await page.getByRole('button',{name:'Close dialog',exact:true}).click();
  for(const route of ['home','results?q=space+science','downloads','settings']){await page.goto(BASE+'/#'+route);await page.waitForTimeout(300);const axe=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.equal(axe.violations.length,0,JSON.stringify(axe.violations));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));}
  assert.deepEqual(errors,[]);
- const ordinary=await browser.newContext({userAgent:'Mozilla/5.0 Android',viewport:{width:390,height:844}});const web=await ordinary.newPage();await web.goto(BASE);await web.getByRole('navigation',{name:'Loxiro tabs',exact:true}).waitFor();assert.equal(await web.getByRole('combobox').count(),1);
+ const ordinary=await browser.newContext({userAgent:'Mozilla/5.0 Android',viewport:{width:390,height:844}});const web=await ordinary.newPage();await web.goto(BASE);await web.getByRole('navigation',{name:'Veilix tabs',exact:true}).waitFor();assert.equal(await web.getByRole('combobox').count(),1);
  await web.goto(BASE+'/#results?q=space+science');await web.getByRole('combobox').waitFor();assert.equal(await web.getByRole('combobox').count(),1);
  console.log('PASS native hosted-page compatibility: native-only omnibox on Home/results, one tab switcher, no hidden workspace shortcuts, honest native download/export/clear-data scope, responsive/axe, ordinary Android web remains unchanged');
 } finally {await browser.close();}

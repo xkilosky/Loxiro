@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { rankResults } from './rank.mjs';
 import {PROVIDERS} from './providers.mjs';
-import {planProviders,sourceWeight} from './planner.mjs';
+import {planProviders,sourceWeight,allowsPaidProviders} from './planner.mjs';
 import {createProviderRuntime} from './runtime.mjs';
 
 const buckets=new Map();
@@ -20,7 +20,7 @@ export async function aggregateSearch(query, { env=process.env, providers=PROVID
   const batches=await Promise.all(providers.map(async p=>{
     const meta={id:p.id,name:p.label,kind:p.kind,access:p.access||'keyless',family:p.family||p.id,count:0};
     if(p.key&&!env[p.key])return{...meta,status:'not_configured',results:[]};
-    if(p.paid&&env.LOXIRO_ALLOW_PAID_PROVIDERS!=='1')return{...meta,status:'disabled',results:[]};
+    if(p.paid&&!allowsPaidProviders(env))return{...meta,status:'disabled',results:[]};
     if(!plan.selected.includes(p.id))return{...meta,status:'skipped',results:[]};
     const response=await runtime.run(p,query,env);
     return{...meta,...response,count:response.results.length};
@@ -29,7 +29,7 @@ export async function aggregateSearch(query, { env=process.env, providers=PROVID
   return{query,results,providers:batches.map(({results,...p})=>p),topics:plan.topics,ranking:'reciprocal-rank-fusion',
     websiteCount:results.filter(r=>r.kind==='website').length,referenceCount:results.filter(r=>r.kind==='reference').length,
     domainCount:new Set(results.map(r=>r.domain)).size,
-    webSearchConfigured:providers.some(p=>p.kind==='web'&&(!p.key||env[p.key])&&(!p.paid||env.LOXIRO_ALLOW_PAID_PROVIDERS==='1')),
+    webSearchConfigured:providers.some(p=>p.kind==='web'&&(!p.key||env[p.key])&&(!p.paid||allowsPaidProviders(env))),
     limitedWebCoverage:!batches.some(p=>p.kind==='web'&&p.status==='ok'&&p.count>0),durationMs:Date.now()-started};
 }
 

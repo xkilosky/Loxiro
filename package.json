@@ -1,9 +1,9 @@
 {
-  "name": "loxiro",
+  "name": "veilix",
   "version": "0.8.0",
   "private": true,
   "type": "module",
-  "description": "Loxiro — a fast, calm, smart search browser for the web",
+  "description": "Veilix — a fast, calm, smart search browser for the web",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build && node scripts/build-sw.mjs && node scripts/stage-output.mjs",
@@ -16,7 +16,8 @@
     "test:downloads": "node scripts/download-smoke.mjs",
     "test:tabs": "node scripts/tabs-smoke.mjs",
     "test:android-web": "node scripts/android-web-smoke.mjs",
-    "test:research": "node scripts/research-smoke.mjs"
+    "test:research": "node scripts/research-smoke.mjs",
+    "test:theme": "node scripts/theme-smoke.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.1.1",

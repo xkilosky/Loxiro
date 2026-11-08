@@ -1,7 +1,15 @@
-package app.loxiro.browser;
+package app.veilix.browser;
 import org.junit.Test;
 import static org.junit.Assert.*;
 public class UrlPolicyTest {
+    @Test public void onlyHostedHomeAndSearchNeedTheNativeAddressBar(){
+        assertTrue(UrlPolicy.isHomeSurface(UrlPolicy.HOME));
+        assertTrue(UrlPolicy.isHomeSurface("https://VEILIX-PREVIEW.VERCEL.APP:443/?android-shell=1#home"));
+        assertTrue(UrlPolicy.isHomeSurface("https://veilix-preview.vercel.app/#results?q=test"));
+        assertTrue(UrlPolicy.isHomeSurface("https://veilix-preview.vercel.app"));
+        for(String url:new String[]{"https://example.org/","https://veilix-preview.vercel.app.evil.org/","https://evil.org/?https://veilix-preview.vercel.app/","http://veilix-preview.vercel.app/","https://veilix-preview.vercel.app:8443/","https://veilix-preview.vercel.app/article","about:blank","https://user@veilix-preview.vercel.app/","https://loxiro-preview.vercel.app/"})assertFalse(url,UrlPolicy.isHomeSurface(url));
+        assertFalse(UrlPolicy.isHomeSurface(null));
+    }
     @Test public void acceptsWebNavigationWithoutCredentials() {
         assertTrue(UrlPolicy.isWebUrl("https://example.org/a?q=b#c"));
         assertTrue(UrlPolicy.isWebUrl("http://127.0.0.1:8080/file"));
@@ -22,7 +30,7 @@ public class UrlPolicyTest {
         assertNull(UrlPolicy.sharedLink(new String(new char[8193]).replace('\0','a')));
     }
     @Test public void searchWordsUseTheExistingUnifiedSearchNotAnExternalEngine() {
-        assertEquals("https://loxiro-preview.vercel.app/?android-shell=1#results?q=space+science",UrlPolicy.resolve("space science"));
+        assertEquals("https://veilix-preview.vercel.app/?android-shell=1#results?q=space+science",UrlPolicy.resolve("space science"));
         assertTrue(UrlPolicy.resolve("NASA").contains("#results?q=NASA"));
         assertNull(UrlPolicy.resolve(new String(new char[4097]).replace('\0','a')));
     }

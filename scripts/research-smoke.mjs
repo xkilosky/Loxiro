@@ -15,7 +15,7 @@ try{
   let configured=false;
   await page.route('**/api/search?*',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({query:'solar energy',results,providers:[{id:'crossref',name:'Crossref',kind:'research',access:'keyless',status:'ok',count:1}],topics:['research'],websiteCount:4,referenceCount:1,domainCount:5,limitedWebCoverage:true,webSearchConfigured:configured})}));
   await page.route('https://icons.duckduckgo.com/**',r=>r.abort());
-  await page.goto(process.env.LOXIRO_BASE_URL||'http://localhost:4173');await page.getByRole('combobox').fill('solar energy');await page.getByRole('combobox').press('Enter');
+  await page.goto(process.env.VEILIX_BASE_URL||'http://localhost:4173');await page.getByRole('combobox').fill('solar energy');await page.getByRole('combobox').press('Enter');
   await page.locator('.result-kind').getByText('Research paper',{exact:true}).waitFor();
   for(const label of ['Article-linked source','Reference','Clinical study record','Documentation'])assert.equal(await page.locator('.result-kind').getByText(label,{exact:true}).count(),1);
   assert.equal(await page.locator('.source-provenance').getAttribute('href'),'https://en.wikipedia.org/wiki/Solar_energy');assert.ok((await page.locator('.results-meta').innerText()).includes('5 domains'));

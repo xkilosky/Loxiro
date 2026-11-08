@@ -1,4 +1,4 @@
-package app.loxiro.browser;
+package app.veilix.browser;
 import org.junit.Test;
 import static org.junit.Assert.*;
 public class BrowserSettingsTest {

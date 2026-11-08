@@ -1,3 +1,6 @@
+/** Accepts the Veilix name and the legacy Loxiro one, so Vercel env vars set before
+ * the rename keep working. Paid providers stay opt-in either way. */
+export const allowsPaidProviders=(env)=>(env.VEILIX_ALLOW_PAID_PROVIDERS??env.LOXIRO_ALLOW_PAID_PROVIDERS)==='1';
 /** This is routing, not a claim that specialists index the entire web. */
 const RULES={
   code:/\b(code|coding|programming|javascript|typescript|python|react|useeffect|rust|golang|java|sql|css|html|api|npm|error|exception|debug|docker|linux|github|repository|repositories|open.source|software|developer|framework|sdk|documentacion|documentación|programacion|programación)\b/i,
@@ -11,7 +14,7 @@ const RULES={
 export function queryTopics(query){return Object.entries(RULES).filter(([,rule])=>rule.test(query)).map(([topic])=>topic);}
 export function planProviders(query, providers, env={}) {
   const topics=queryTopics(query);
-  const eligible=providers.filter(p=>!p.key||env[p.key]).filter(p=>!p.paid||env.LOXIRO_ALLOW_PAID_PROVIDERS==='1');
+  const eligible=providers.filter(p=>!p.key||env[p.key]).filter(p=>!p.paid||allowsPaidProviders(env));
   const scores=eligible.map(p=>({p,score:p.priority??(p.topics?.some(t=>topics.includes(t))?85:0)})).filter(v=>v.score>0);
   // A strict cap keeps one search from fanning out to every registered API.
   const selected=scores.sort((a,b)=>b.score-a.score).slice(0,8).map(v=>v.p.id);

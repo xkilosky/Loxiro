@@ -1,4 +1,4 @@
-package app.loxiro.browser;
+package app.veilix.browser;
 
 import android.content.Context;
 import android.content.Intent;
@@ -52,13 +52,36 @@ public class BrowserActivityTest {
         Intent intent=new Intent(context,BrowserActivity.class);intent.putExtra("test_home",origin+"/one");scenario=ActivityScenario.launch(intent);
         awaitTitle("First fixture");
     }
+    @Test public void oledChromeUsesBlackSurfacesAndWhiteText() throws Exception {
+        scenario.onActivity(activity->{
+            android.widget.EditText address=activity.findViewById(R.id.address);
+            // The HTTP fixture deliberately retains its readable insecure-connection warning.
+            assertEquals(BrowserPalette.ERROR,address.getCurrentTextColor());
+            assertEquals(android.graphics.Color.WHITE,((android.widget.Button)activity.findViewById(R.id.tab_count)).getCurrentTextColor());
+            assertEquals(BrowserPalette.MUTED,address.getCurrentHintTextColor());
+            View root=(View)activity.findViewById(R.id.browser_toolbar).getParent();
+            assertEquals(android.graphics.Color.BLACK,((android.graphics.drawable.ColorDrawable)root.getBackground()).getColor());
+            android.content.res.TypedArray attrs=activity.obtainStyledAttributes(new int[]{android.R.attr.windowLightStatusBar,android.R.attr.windowLightNavigationBar});
+            assertFalse(attrs.getBoolean(0,true));assertFalse(attrs.getBoolean(1,true));attrs.recycle();
+        });
+        onView(withId(R.id.tab_count)).perform(click());
+        onView(withId(R.id.new_tab)).check((view,error)->{
+            if(error!=null)throw error;
+            assertEquals(android.graphics.Color.BLACK,((android.widget.Button)view).getCurrentTextColor());
+        });
+        saveScreenshot("oled-tab-overview.png");
+        onView(withContentDescription("Return to website")).perform(click());
+        openBrowserSettings();saveScreenshot("oled-browser-settings.png");
+        onView(withContentDescription("Close browser settings")).perform(click());
+        saveScreenshot("oled-browser-toolbar.png");
+    }
     private void serve(Socket socket) {
         try(Socket s=socket){
             BufferedReader reader=new BufferedReader(new InputStreamReader(s.getInputStream(),StandardCharsets.UTF_8));String request=reader.readLine();
             if(request==null)return;String line;while((line=reader.readLine())!=null&&!line.isEmpty()){}
-            boolean second=request.contains(" /two ");
-            String html="<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><title>"+(second?"Second fixture":"First fixture")+"</title><style>body{margin:8px}a{display:block;height:120px;background:#eef0ff}</style><a href='/two' target='_blank'>Open another website</a><p>Real website content cannot remove Android browser chrome.</p>";
-            byte[] body=html.getBytes(StandardCharsets.UTF_8);OutputStream out=s.getOutputStream();out.write(("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: "+body.length+"\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));out.write(body);out.flush();
+            boolean second=request.contains(" /two "),failure=request.contains(" /error ");
+            String html="<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><title>"+(failure?"Page error":second?"Second fixture":"First fixture")+"</title><style>body{margin:8px}a{display:block;height:120px;background:#eef0ff}</style><a href='/two' target='_blank'>Open another website</a><p>Real website content cannot remove Android browser chrome.</p>";
+            byte[] body=html.getBytes(StandardCharsets.UTF_8);OutputStream out=s.getOutputStream();out.write(("HTTP/1.1 "+(failure?"503 Service Unavailable":"200 OK")+"\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: "+body.length+"\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));out.write(body);out.flush();
         }catch(Exception ignored){}
     }
     private void awaitTitle(String title) {
@@ -137,12 +160,25 @@ public class BrowserActivityTest {
         onView(withContentDescription("Restore First fixture")).perform(click());awaitTitle("First fixture");scenario.onActivity(a->assertEquals(2,a.nativeTabCount()));assertCompactChrome();
         onView(withId(R.id.tab_count)).perform(click());onView(withContentDescription("Return to website")).perform(click());assertCompactChrome();
         scenario.onActivity(a->a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();awaitTitle("First fixture");
+        awaitOrientation(android.content.res.Configuration.ORIENTATION_LANDSCAPE);awaitTitle("First fixture");
         onView(withId(R.id.tab_count)).perform(click());onView(withId(R.id.tab_overview)).check(matches(isDisplayed()));
         onView(withId(R.id.new_tab)).check(matches(isDisplayed()));saveScreenshot("tabs-landscape.png");
         onView(withContentDescription("Return to website")).perform(click());assertCompactChrome();
         scenario.onActivity(a->a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();awaitTitle("First fixture");
+        awaitOrientation(android.content.res.Configuration.ORIENTATION_PORTRAIT);awaitTitle("First fixture");
+    }
+    private void awaitOrientation(int orientation) {
+        long end=SystemClock.uptimeMillis()+15000;AtomicBoolean settled=new AtomicBoolean();
+        while(SystemClock.uptimeMillis()<end){
+            scenario.onActivity(a->{
+                View decor=a.getWindow().getDecorView();
+                boolean landscape=decor.getWidth()>decor.getHeight();
+                settled.set(a.getResources().getConfiguration().orientation==orientation&&decor.getWidth()>0&&decor.getHeight()>0&&landscape==(orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE)&&a.activePageReady());
+            });
+            if(settled.get()){InstrumentationRegistry.getInstrumentation().waitForIdleSync();return;}
+            SystemClock.sleep(75);
+        }
+        fail("Activity did not finish requested rotation");
     }
     private void openBrowserSettings(){
         onView(withContentDescription("Browser options")).perform(click());onView(withText("Browser settings")).perform(click());
@@ -177,6 +213,68 @@ public class BrowserActivityTest {
         context.getSharedPreferences("native-settings-v1",Context.MODE_PRIVATE).edit().putString("textZoom","wrong type").putInt("pinchZoom",1).putInt("tabPreviews",1).putString("keepScreenOn","bad").commit();
         BrowserSettings s=new SettingsStore(context).load();assertEquals(100,s.textZoom);assertTrue(s.pinchZoom);assertTrue(s.tabPreviews);assertFalse(s.keepScreenOn);
         context.getSharedPreferences("native-settings-v1",Context.MODE_PRIVATE).edit().putInt("textZoom",99999).commit();assertEquals(200,new SettingsStore(context).load().textZoom);
+    }
+    private void enterWebsiteFullscreen(){
+        onView(withContentDescription("Browser options")).perform(click());onView(withText("Full screen website")).perform(click());
+        long end=SystemClock.uptimeMillis()+5000;AtomicBoolean ready=new AtomicBoolean();
+        while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->ready.set(a.isWebsiteFullscreen()&&!a.getWindow().getDecorView().getRootWindowInsets().isVisible(android.view.WindowInsets.Type.systemBars())));if(ready.get())break;SystemClock.sleep(50);}
+        assertTrue("Fullscreen should hide system bars",ready.get());
+    }
+    private int visibleNativeButtons(View view){
+        if(!view.isShown()||view instanceof WebView)return 0;
+        if(view instanceof android.widget.Button)return 1;
+        int n=0;if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;for(int i=0;i<group.getChildCount();i++)n+=visibleNativeButtons(group.getChildAt(i));}return n;
+    }
+    private void assertWebsiteFullscreen(){
+        onView(withId(R.id.fullscreen_tabs)).check(matches(isDisplayed()));
+        scenario.onActivity(a->{
+            assertTrue(a.isWebsiteFullscreen());assertFalse(a.isPageFullscreen());
+            assertEquals(View.GONE,a.findViewById(R.id.browser_toolbar).getVisibility());assertEquals(View.GONE,a.findViewById(R.id.find_bar).getVisibility());assertFalse(a.findViewById(R.id.address).isShown());
+            View content=a.findViewById(R.id.web_content);View stage=(View)content.getParent().getParent();assertEquals("Only Tabs is visible native browser chrome",1,visibleNativeButtons(stage));
+            View tabs=a.findViewById(R.id.fullscreen_tabs);int[] xy=new int[2];tabs.getLocationOnScreen(xy);assertTrue(xy[0]>=0&&xy[1]>=0);assertTrue(tabs.getWidth()>=48*a.getResources().getDisplayMetrics().density);assertTrue(tabs.getHeight()>=48*a.getResources().getDisplayMetrics().density);
+        });
+    }
+    @Test public void websiteFullscreenKeepsOnlyTabsAcrossSwitchingRecreationRotationAndBack() throws Exception {
+        scenario.onActivity(a->a.onNewIntent(new Intent(Intent.ACTION_VIEW,android.net.Uri.parse(origin+"/two"))));awaitTitle("Second fixture");
+        java.util.concurrent.atomic.AtomicInteger height=new java.util.concurrent.atomic.AtomicInteger();scenario.onActivity(a->height.set(a.findViewById(R.id.web_content).getHeight()));
+        enterWebsiteFullscreen();assertWebsiteFullscreen();
+        scenario.onActivity(a->assertTrue("Website expands into the former toolbar",a.findViewById(R.id.web_content).getHeight()>height.get()+48*a.getResources().getDisplayMetrics().density));saveScreenshot("website-fullscreen.png");
+        onView(withId(R.id.fullscreen_tabs)).perform(click());onView(withContentDescription("Go to First fixture")).perform(scrollTo(),click());awaitTitle("First fixture");assertWebsiteFullscreen();
+        onView(withId(R.id.fullscreen_tabs)).perform(click());onView(withContentDescription("Go to Second fixture")).perform(scrollTo(),click());awaitTitle("Second fixture");assertWebsiteFullscreen();
+        scenario.recreate();awaitTitle("Second fixture");assertWebsiteFullscreen();
+        scenario.onActivity(a->a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));awaitOrientation(android.content.res.Configuration.ORIENTATION_LANDSCAPE);awaitTitle("Second fixture");assertWebsiteFullscreen();saveScreenshot("website-fullscreen-landscape.png");
+        scenario.onActivity(a->a.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));awaitOrientation(android.content.res.Configuration.ORIENTATION_PORTRAIT);awaitTitle("Second fixture");assertWebsiteFullscreen();
+        scenario.onActivity(a->((WebView)((android.widget.FrameLayout)a.findViewById(R.id.web_content)).getChildAt(0)).loadUrl(origin+"/one"));awaitTitle("First fixture");assertWebsiteFullscreen();
+        androidx.test.espresso.Espresso.pressBack();onView(withId(R.id.address)).check(matches(isDisplayed()));assertCompactChrome();
+        scenario.onActivity(a->{assertFalse(a.isWebsiteFullscreen());assertEquals(origin+"/one",a.activeUrl());assertEquals(2,a.nativeTabCount());assertFalse(a.findViewById(R.id.fullscreen_tabs).isShown());});
+        androidx.test.espresso.Espresso.pressBack();awaitTitle("Second fixture");scenario.onActivity(a->assertEquals(2,a.nativeTabCount()));
+    }
+    @Test public void websitePopupKeepsFullscreenTabsAvailable(){
+        enterWebsiteFullscreen();
+        onView(isAssignableFrom(WebView.class)).perform(new GeneralClickAction(Tap.SINGLE,view->{int[] p=new int[2];view.getLocationOnScreen(p);float d=view.getResources().getDisplayMetrics().density;return new float[]{p[0]+80*d,p[1]+60*d};},Press.FINGER));
+        awaitTitle("Second fixture");assertWebsiteFullscreen();scenario.onActivity(a->assertEquals(2,a.nativeTabCount()));
+    }
+    @Test public void failedPageLeavesFullscreenForVisibleRecoveryControls(){
+        enterWebsiteFullscreen();scenario.onActivity(a->((WebView)((android.widget.FrameLayout)a.findViewById(R.id.web_content)).getChildAt(0)).loadUrl(origin+"/error"));awaitTitle("Page error");
+        // Error callbacks may precede onPageStarted; the recovery banner must survive either order.
+        long end=SystemClock.uptimeMillis()+5000;AtomicBoolean recovery=new AtomicBoolean();
+        while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->{android.widget.TextView error=a.findViewById(R.id.browser_error);recovery.set(!a.isWebsiteFullscreen()&&error.isShown()&&error.length()>0);});if(recovery.get())break;SystemClock.sleep(50);}
+        scenario.onActivity(a->{android.widget.TextView error=a.findViewById(R.id.browser_error);assertTrue("Expected visible recovery error; fullscreen="+a.isWebsiteFullscreen()+", error="+error.getText()+", visibility="+error.getVisibility(),recovery.get());});
+        onView(withId(R.id.address)).check(matches(isDisplayed()));onView(withId(R.id.browser_error)).check(matches(isDisplayed()));
+        onView(withText("Website returned HTTP 503.")).check(matches(isDisplayed()));
+        onView(withId(R.id.address)).perform(replaceText(origin+"/one"),pressImeActionButton());awaitTitle("First fixture");scenario.onActivity(a->assertEquals(View.GONE,a.findViewById(R.id.browser_error).getVisibility()));
+    }
+    @Test public void newTabFromFullscreenRestoresTheAddressBar(){
+        enterWebsiteFullscreen();onView(withId(R.id.fullscreen_tabs)).perform(click());onView(withId(R.id.new_tab)).perform(click());awaitTitle("First fixture");
+        onView(withId(R.id.address)).check(matches(isDisplayed()));scenario.onActivity(a->{assertFalse(a.isWebsiteFullscreen());assertEquals(2,a.nativeTabCount());});assertCompactChrome();
+    }
+    @Test public void closingLastFullscreenTabRestoresHomeControls(){
+        enterWebsiteFullscreen();onView(withId(R.id.fullscreen_tabs)).perform(click());onView(withContentDescription("Close First fixture")).perform(scrollTo(),click());awaitTitle("First fixture");
+        onView(withContentDescription("Return to website")).perform(click());onView(withId(R.id.address)).check(matches(isDisplayed()));scenario.onActivity(a->{assertFalse(a.isWebsiteFullscreen());assertEquals(1,a.nativeTabCount());});
+    }
+    @Test public void fullscreenTabsRespectsRoomierTouchControls(){
+        openBrowserSettings();onView(withText("Roomier address bar")).perform(scrollTo(),click());onView(withContentDescription("Close browser settings")).perform(click());
+        enterWebsiteFullscreen();assertWebsiteFullscreen();scenario.onActivity(a->assertEquals(Math.round(64*a.getResources().getDisplayMetrics().density),a.findViewById(R.id.fullscreen_tabs).getHeight()));
     }
     private void saveScreenshot(String name) throws Exception {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();

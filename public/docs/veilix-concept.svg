@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 900" width="420" height="900" role="img" aria-label="Loxiro mobile app home screen concept">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 900" width="420" height="900" role="img" aria-label="Veilix mobile app home screen concept">
   <defs>
     <radialGradient id="canvas" cx="50%" cy="38%" r="70%">
       <stop offset="0%" stop-color="#F3F2EE"/>
@@ -42,7 +42,7 @@
 
   <!-- wordmark -->
   <g class="ui">
-    <text x="68" y="192" font-size="46" font-weight="650" letter-spacing="-2" class="ink">Loxiro</text>
+    <text x="68" y="192" font-size="46" font-weight="650" letter-spacing="-2" class="ink">Veilix</text>
     <circle cx="205" cy="176" r="4.2" class="accent"/>
     <text x="69" y="222" font-size="12" letter-spacing="0.4" class="muted">Search, without the noise.</text>
   </g>
@@ -158,6 +158,6 @@
 
   <!-- board caption -->
   <g class="ui" font-size="9" font-weight="600" letter-spacing="2.2">
-    <text x="210" y="886" text-anchor="middle" fill="#A6A5A0">LOXIRO — CONCEPT 01 / HOME</text>
+    <text x="210" y="886" text-anchor="middle" fill="#A6A5A0">VEILIX — CONCEPT 01 / HOME</text>
   </g>
 </svg>

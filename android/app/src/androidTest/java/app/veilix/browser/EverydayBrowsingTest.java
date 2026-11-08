@@ -1,4 +1,4 @@
-package app.loxiro.browser;
+package app.veilix.browser;
 
 import android.app.Activity;
 import android.app.Instrumentation;
@@ -91,13 +91,13 @@ public class EverydayBrowsingTest {
         scenario.onActivity(a->assertEquals(View.GONE,a.findViewById(R.id.find_bar).getVisibility()));
     }
     @Test public void selectedDocumentAndPhotoAreReadableByTheWebsite() throws Exception {
-        Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();Uri document=Uri.parse("content://app.loxiro.browser.test.files/hello.txt");
+        Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();Uri document=Uri.parse("content://app.veilix.browser.test.files/hello.txt");
         c.getContentResolver().call(document,"grant",c.getPackageName(),null);
         assertEquals("Fixture must supply a real read-only URI grant",android.content.pm.PackageManager.PERMISSION_GRANTED,c.checkUriPermission(document,android.os.Process.myPid(),android.os.Process.myUid(),Intent.FLAG_GRANT_READ_URI_PERMISSION));
         intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWith(new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(document).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)));
         touchElement("upload-file");intended(hasAction(Intent.ACTION_OPEN_DOCUMENT));scenario.onActivity(a->assertEquals("accepted:1",a.uploadStatus()));awaitTitle("upload:Selected document fixture");
         intended(hasAction(Intent.ACTION_OPEN_DOCUMENT));
-        Intents.release();Intents.init();Uri photo=Uri.parse("content://app.loxiro.browser.test.files/photo.png");
+        Intents.release();Intents.init();Uri photo=Uri.parse("content://app.veilix.browser.test.files/photo.png");
         intending(hasAction(Intent.ACTION_OPEN_DOCUMENT)).respondWith(new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(photo).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)));
         touchElement("photo");awaitTitle("photo:1:image/png");
         scenario.onActivity(a->{assertFalse(page(a).getSettings().getAllowFileAccess());assertFalse(page(a).getSettings().getAllowContentAccess());});
@@ -110,6 +110,13 @@ public class EverydayBrowsingTest {
         touchElement("fullscreen");long end=SystemClock.uptimeMillis()+7000;AtomicBoolean active=new AtomicBoolean();while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->active.set(a.isPageFullscreen()));if(active.get())break;SystemClock.sleep(50);}assertTrue("WebView must enter a real custom full-screen view",active.get());awaitTitle("Playing");
         onView(withContentDescription("Exit full screen")).perform(click());onView(withId(R.id.address)).check(matches(isDisplayed()));scenario.onActivity(a->assertFalse(a.isPageFullscreen()));
         touchElement("fullscreen");SystemClock.sleep(300);androidx.test.espresso.Espresso.pressBack();onView(withId(R.id.tab_count)).check(matches(isDisplayed()));scenario.onActivity(a->assertFalse(a.isPageFullscreen()));
+    }
+    @Test public void videoFullscreenReturnsToWebsiteFullscreenThenBackRestoresToolbar() throws Exception {
+        menu("Full screen website");onView(withId(R.id.fullscreen_tabs)).check(matches(isDisplayed()));
+        touchElement("fullscreen");long end=SystemClock.uptimeMillis()+7000;AtomicBoolean active=new AtomicBoolean();while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->active.set(a.isPageFullscreen()));if(active.get())break;SystemClock.sleep(50);}assertTrue(active.get());awaitTitle("Playing");
+        scenario.onActivity(a->{assertTrue(a.isWebsiteFullscreen());assertFalse(a.findViewById(R.id.fullscreen_tabs).isShown());});
+        androidx.test.espresso.Espresso.pressBack();onView(withId(R.id.fullscreen_tabs)).check(matches(isDisplayed()));scenario.onActivity(a->{assertTrue(a.isWebsiteFullscreen());assertFalse(a.isPageFullscreen());assertFalse(a.findViewById(R.id.address).isShown());});
+        androidx.test.espresso.Espresso.pressBack();onView(withId(R.id.address)).check(matches(isDisplayed()));scenario.onActivity(a->assertFalse(a.isWebsiteFullscreen()));
     }
     @Test public void incomingLinksReuseActivityWithoutLosingTabsAndShareUsesAChooser(){
         scenario.onActivity(a->a.onNewIntent(new Intent(Intent.ACTION_VIEW,Uri.parse(origin+"/other"))));awaitTitle("Features");scenario.onActivity(a->{assertEquals(2,a.nativeTabCount());assertEquals(origin+"/other",a.activeUrl());});

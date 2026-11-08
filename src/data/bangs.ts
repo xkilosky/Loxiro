@@ -1,6 +1,6 @@
 import type { Bang } from '../types';
 
-/** DuckDuckGo-style bang shortcuts. Prefix-less: Loxiro resolves them instantly. */
+/** DuckDuckGo-style bang shortcuts. Prefix-less: Veilix resolves them instantly. */
 export const BANGS: Bang[] = [
   { key: 'g', label: '!g', description: 'Google', engine: 'google' },
   { key: 'b', label: '!b', description: 'Bing', engine: 'bing' },

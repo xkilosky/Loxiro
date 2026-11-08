@@ -26,7 +26,7 @@ Pacing is best-effort **per warm server instance**, not an assertion of a provid
 
 ## Optional recurring free-tier web APIs
 
-- **Tavily:** [credits](https://docs.tavily.com/documentation/api-credits), [endpoint](https://docs.tavily.com/documentation/api-reference/endpoint/search). 1,000 free credits/month documented; Loxiro explicitly sets basic depth, no auto parameters, no generated answer, no raw page content. `TAVILY_API_KEY`.
+- **Tavily:** [credits](https://docs.tavily.com/documentation/api-credits), [endpoint](https://docs.tavily.com/documentation/api-reference/endpoint/search). 1,000 free credits/month documented; Veilix explicitly sets basic depth, no auto parameters, no generated answer, no raw page content. `TAVILY_API_KEY`.
 - **SerpApi:** [pricing](https://serpapi.com/pricing), [Google endpoint](https://serpapi.com/search-api). 250 free searches/month and 50/hour documented. `SERPAPI_API_KEY`. Local start interval 73 seconds stays below 50/hour on one instance. Google-backed organic links only, not AI overviews.
 - **Zenserp:** [pricing](https://zenserp.com/), [authentication/endpoints](https://app.zenserp.com/documentation). 50 free searches/month documented. `ZENSERP_API_KEY` sent as an HTTPS header. Google organic links only, not answer engines.
 

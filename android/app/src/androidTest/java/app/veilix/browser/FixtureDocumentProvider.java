@@ -1,4 +1,4 @@
-package app.loxiro.browser;
+package app.veilix.browser;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
@@ -20,8 +20,8 @@ public final class FixtureDocumentProvider extends ContentProvider {
         if("grant".equals(method)&&"app.loxiro.browser".equals(arg)){
             long identity=android.os.Binder.clearCallingIdentity();
             try{
-                getContext().grantUriPermission(arg,Uri.parse("content://app.loxiro.browser.test.files/hello.txt"),Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                getContext().grantUriPermission(arg,Uri.parse("content://app.loxiro.browser.test.files/photo.png"),Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                getContext().grantUriPermission(arg,Uri.parse("content://app.veilix.browser.test.files/hello.txt"),Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                getContext().grantUriPermission(arg,Uri.parse("content://app.veilix.browser.test.files/photo.png"),Intent.FLAG_GRANT_READ_URI_PERMISSION);
             }finally{android.os.Binder.restoreCallingIdentity(identity);}
         }
         return Bundle.EMPTY;

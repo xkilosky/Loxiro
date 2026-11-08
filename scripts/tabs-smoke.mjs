@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-const BASE=process.env.LOXIRO_BASE_URL || 'http://localhost:4173';
+const BASE=process.env.VEILIX_BASE_URL || 'http://localhost:4173';
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_EXECUTABLE_PATH || undefined,args:['--no-sandbox','--disable-dev-shm-usage'],headless:true});
 try {
   const context=await browser.newContext({viewport:{width:1440,height:1000},acceptDownloads:true});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -12,13 +12,13 @@ try {
     return r.fulfill({contentType:'application/json',body:JSON.stringify({query:q,results:[{kind:'website',title:`Result for ${q}`,url:`https://example.org/${encodeURIComponent(q)}`,domain:'example.org',extract:`Controlled tab fixture for ${q}.`,sources:['Fixture'],reason:'UI test fixture'}],providers:[{id:'fixture',name:'Fixture',kind:'web',status:'ok',count:1}],limitedWebCoverage:false,websiteCount:1,referenceCount:0,ranking:'fixture'})});
   });
   await page.route('https://icons.duckduckgo.com/ip3/*',r=>r.abort());
-  const bar=page.getByRole('navigation',{name:'Loxiro tabs',exact:true});
+  const bar=page.getByRole('navigation',{name:'Veilix tabs',exact:true});
   const search=async(q)=>{await page.getByRole('combobox').fill(q);await page.getByRole('combobox').press('Enter');await page.getByRole('link',{name:`Result for ${q}`,exact:false}).waitFor();};
   const manage=async()=>{await page.getByRole('button',{name:/^Manage tabs \(/}).click();await page.getByRole('dialog').waitFor();};
   const closeDialog=async()=>{await page.getByRole('button',{name:'Close dialog',exact:true}).click();};
   const order=()=>bar.locator('.workspace-tab-select span').allTextContents();
   await page.goto(BASE);assert.equal(await bar.locator('.workspace-tab').count(),1);await search('alpha');
-  await page.getByRole('button',{name:'New Loxiro tab',exact:true}).click();await search('beta');await page.getByRole('combobox').fill('beta unsent edit');
+  await page.getByRole('button',{name:'New Veilix tab',exact:true}).click();await search('beta');await page.getByRole('combobox').fill('beta unsent edit');
   await bar.getByRole('button',{name:'Switch to alpha',exact:true}).click();await page.getByRole('link',{name:'Result for alpha',exact:false}).waitFor();
   await bar.getByRole('button',{name:'Switch to beta',exact:true}).click();assert.equal(await page.getByRole('combobox').inputValue(),'beta unsent edit');assert.equal(calls.get('alpha'),1);assert.equal(calls.get('beta'),1);
   assert.equal(await page.locator('iframe').count(),0);assert.equal(await page.getByRole('link',{name:'Result for beta',exact:false}).getAttribute('target'),'_blank');
@@ -39,16 +39,16 @@ try {
   let release;
   const intercepted=new Promise(resolve=>page.route('**/tab-download.bin',r=>{release=()=>r.fulfill({contentType:'application/octet-stream',body:Buffer.from([1,2,3,4])});resolve();}));
   await page.getByRole('navigation',{name:'Main navigation',exact:true}).getByRole('button',{name:'Downloads',exact:false}).click();await page.getByRole('button',{name:'New download',exact:true}).click();await page.getByRole('dialog').getByLabel('File URL').fill(`${BASE}/tab-download.bin`);await page.getByRole('dialog').getByLabel('Save as').fill('continuity.bin');await page.getByRole('button',{name:'Add to queue',exact:true}).click();await intercepted;
-  await page.getByRole('button',{name:'New Loxiro tab',exact:true}).click();await bar.getByRole('button',{name:'Close tab Downloads',exact:true}).click();const event=page.waitForEvent('download');await release();const file=await event;assert.deepEqual([...await readFile(await file.path())],[1,2,3,4]);await page.getByRole('navigation',{name:'Main navigation',exact:true}).getByRole('button',{name:'Downloads',exact:false}).click();await page.getByText('Saved to browser',{exact:false}).waitFor();
+  await page.getByRole('button',{name:'New Veilix tab',exact:true}).click();await bar.getByRole('button',{name:'Close tab Downloads',exact:true}).click();const event=page.waitForEvent('download');await release();const file=await event;assert.deepEqual([...await readFile(await file.path())],[1,2,3,4]);await page.getByRole('navigation',{name:'Main navigation',exact:true}).getByRole('button',{name:'Downloads',exact:false}).click();await page.getByText('Saved to browser',{exact:false}).waitFor();
   console.log('PASS download continues and saves exact bytes after its tab is closed');
   for(const width of [360,390,768,1440]){await page.setViewportSize({width,height:844});await manage();await page.waitForTimeout(300);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Tabs overflow at ${width}`);const axe=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.equal(axe.violations.length,0,JSON.stringify(axe.violations));await closeDialog();}
-  await page.getByRole('button',{name:'Toggle light and dark theme'}).click();await page.waitForTimeout(400);await manage();await page.waitForTimeout(300);const dark=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.equal(dark.violations.length,0,JSON.stringify(dark.violations));await page.screenshot({path:'/tmp/loxiro-tabs-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});await page.screenshot({path:'/tmp/loxiro-tabs-mobile.png',fullPage:true});await closeDialog();
+  await page.getByRole('button',{name:'Toggle light and dark theme'}).click();await page.waitForTimeout(400);await manage();await page.waitForTimeout(300);const dark=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.equal(dark.violations.length,0,JSON.stringify(dark.violations));await page.screenshot({path:'/tmp/veilix-tabs-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});await page.screenshot({path:'/tmp/veilix-tabs-mobile.png',fullPage:true});await closeDialog();
   await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'Settings',exact:false}).first().click();await page.getByRole('button',{name:'Clear all data',exact:true}).click();await page.getByRole('button',{name:'Clear everything',exact:true}).click();await page.getByRole('heading',{name:/A little curiosity/}).waitFor();assert.deepEqual(await order(),['New tab']);await manage();assert.equal(await page.getByRole('button',{name:/^Reopen last closed/}).isDisabled(),true);await closeDialog();
   console.log('PASS responsive overview, light/dark accessibility, and clear-all removes open/closed tabs');
   await page.reload();assert.equal(await bar.locator('.workspace-tab').count(),1);assert.deepEqual(errors,[]);
   await page.setViewportSize({width:360,height:844});
   for(let i=1;i<30;i++)await page.keyboard.press('Alt+Shift+N');
-  assert.equal(await bar.locator('.workspace-tab').count(),30);await page.getByRole('button',{name:'New Loxiro tab',exact:true}).click();assert.equal(await bar.locator('.workspace-tab').count(),30);await page.getByText('Maximum 30 tabs. Close one first.',{exact:true}).waitFor();
+  assert.equal(await bar.locator('.workspace-tab').count(),30);await page.getByRole('button',{name:'New Veilix tab',exact:true}).click();assert.equal(await bar.locator('.workspace-tab').count(),30);await page.getByText('Maximum 30 tabs. Close one first.',{exact:true}).waitFor();
   await page.reload();assert.equal(await bar.locator('.workspace-tab').count(),30);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await manage();await page.keyboard.press('Alt+Shift+W');assert.equal(await bar.locator('.workspace-tab').count(),30);assert.equal(await page.getByRole('dialog').getByRole('button',{name:'New tab',exact:true}).isDisabled(),true);
   await page.getByRole('button',{name:'Close unpinned tabs',exact:true}).click();await page.getByRole('button',{name:'Close tabs',exact:true}).click();assert.equal(await bar.locator('.workspace-tab').count(),1);await page.keyboard.press('Tab');assert.equal(await page.getByRole('dialog').evaluate(el=>el.contains(document.activeElement)),true);await page.getByRole('button',{name:'Reopen last closed (10)',exact:true}).waitFor();await closeDialog();
