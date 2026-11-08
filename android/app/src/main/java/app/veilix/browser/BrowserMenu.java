@@ -52,24 +52,24 @@ final class BrowserMenu {
 
     static List<Section> sections() {
         List<Section> sections = new ArrayList<>();
+        sections.add(Section.of("Browser",
+                Entry.of("Browser settings", Action.SETTINGS),
+                Entry.of("Full screen website", Action.FULLSCREEN),
+                Entry.of("Default browser", Action.DEFAULT_BROWSER),
+                Entry.of("Home", Action.HOME)));
         sections.add(Section.of("This page",
                 Entry.of("Find in page", Action.FIND),
                 Entry.of("Share page", Action.SHARE),
-                Entry.of("Open page in external browser", Action.OPEN_EXTERNAL),
                 Entry.of("Reload / stop", Action.RELOAD_OR_STOP),
-                Entry.of("Forward", Action.FORWARD)));
+                Entry.of("Forward", Action.FORWARD),
+                Entry.of("Open page in external browser", Action.OPEN_EXTERNAL)));
         sections.add(Section.of("Tabs",
                 Entry.of("New tab", Action.NEW_TAB),
                 Entry.of("Website tabs", Action.OVERVIEW),
                 Entry.of("Reopen last closed tab", Action.REOPEN),
                 Entry.of("Close unpinned tabs", Action.CLOSE_UNPINNED)));
-        sections.add(Section.of("Browser",
-                Entry.of("Browser settings", Action.SETTINGS),
-                Entry.of("Full screen website", Action.FULLSCREEN),
-                Entry.of("Default browser", Action.DEFAULT_BROWSER),
-                Entry.of("Home", Action.HOME),
-                Entry.of("Android downloads", Action.DOWNLOADS)));
-        sections.add(Section.of("Privacy & about",
+        sections.add(Section.of("Data & about",
+                Entry.of("Android downloads", Action.DOWNLOADS),
                 Entry.of("Clear browser data", Action.CLEAR_DATA),
                 Entry.of("About this preview", Action.ABOUT)));
         return Collections.unmodifiableList(sections);

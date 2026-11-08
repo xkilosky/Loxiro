@@ -465,7 +465,7 @@ public final class BrowserActivity extends Activity {
         view.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
         view.setLetterSpacing(.16f);
         view.setTextColor(BrowserPalette.MUTED);
-        view.setPadding(dp(22),dp(20),dp(22),dp(7));
+        view.setPadding(dp(22),dp(14),dp(22),dp(4));
         return view;
     }
     private TextView menuTitle(String text){
@@ -474,7 +474,7 @@ public final class BrowserActivity extends Activity {
         view.setTextSize(17f);
         view.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
         view.setTextColor(BrowserPalette.INK);
-        view.setPadding(dp(22),dp(20),dp(22),dp(4));
+        view.setPadding(dp(22),dp(14),dp(22),dp(2));
         return view;
     }
     /** A 52dp row with its label and a hairline divider the adapter shows or hides. */
@@ -483,7 +483,7 @@ public final class BrowserActivity extends Activity {
         row.setOrientation(LinearLayout.VERTICAL);
         LinearLayout content=row();
         content.setPadding(dp(22),0,dp(22),0);
-        content.setMinimumHeight(dp(52));
+        content.setMinimumHeight(dp(48));
         TextView label=new TextView(this);
         label.setTextSize(15f);
         label.setTextColor(BrowserPalette.INK);

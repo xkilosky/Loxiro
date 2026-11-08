@@ -31,6 +31,21 @@ public class BrowserMenuTest {
         assertEquals(labels.size(), new HashSet<>(labels).size());
     }
 
+    /**
+     * An AlertDialog list keeps only the first handful of rows attached, so the
+     * labels the instrumentation tests click by text have to stay near the top.
+     * Reordering the menu without this breaks CI in a place no unit test sees.
+     */
+    @Test public void keepsTheLabelsTheInstrumentationTestsClickByTextNearTheTop() {
+        List<String> rows = new ArrayList<>();
+        for (Object row : BrowserMenu.rows())
+            rows.add(row instanceof String ? null : ((BrowserMenu.Entry) row).label);
+        for (String label : CLICKED_BY_TESTS) {
+            int index = rows.indexOf(label);
+            assertTrue(label + " sits at row " + index + ", too far down to click", index >= 0 && index <= 7);
+        }
+    }
+
     @Test public void hasNoEmptySection() {
         for (BrowserMenu.Section section : BrowserMenu.sections())
             assertTrue(section.title, !section.entries.isEmpty());
