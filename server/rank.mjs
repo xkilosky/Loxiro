@@ -54,10 +54,10 @@ export function rankResults(batches, query, limit = 10) {
     const relevance=tokenCoverage(subject,title)*.7+tokenCoverage(subject,text)*.3;
     return {...row, score:row.score*(.35+relevance), reason:row.votes.size>1 ? `Found by ${row.votes.size} sources` : row.sources.length>1 ? 'Found by related sources' : row.bestRank===1 ? 'Top match from this source' : 'Ranked by source position and query match'};
   }).sort((a,b)=>b.score-a.score || a.url.localeCompare(b.url));
-  // When a real website candidate exists, lead with the strongest one. Keep
-  // encyclopedia/directory pages as supporting references, not the whole feed.
-  const website=rows.find(row=>row.kind==='website');
-  const ordered=website?[website,...rows.filter(row=>row!==website)]:rows;
+  // Web destinations lead the feed. Encyclopedia and directory pages stay as
+  // supporting references behind them, never as the whole feed, so a thin
+  // keyless result set still reads as websites first and sources second.
+  const ordered=[...rows.filter(row=>row.kind==='website'),...rows.filter(row=>row.kind!=='website')];
   const selected=[], deferred=[], domains=new Map(), categories=new Map();
   let referenceCount=0;
   for (const row of ordered) {

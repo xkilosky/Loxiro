@@ -1,10 +1,45 @@
-import {json,stripTags,describe,ProviderError} from './transport.mjs';
+import {html,json,stripTags,describe,ProviderError} from './transport.mjs';
 import {queryTopics,websiteSubject} from './planner.mjs';
 import {listedWebsites} from './websites.mjs';
 import {linkedSources} from './linked-sources.mjs';
 import {specialistQuery} from './relevance.mjs';
+import {canonicalUrl} from './rank.mjs';
 const enc=encodeURIComponent;
 const params=(base,values)=>{const u=new URL(base);for(const [k,v]of Object.entries(values))if(v!==undefined&&v!=='')u.searchParams.set(k,String(v));return u.href;};
+
+/** DuckDuckGo's HTML endpoint is a page, not an API. Its markup can change
+ * without notice and it may answer with a challenge page instead of results,
+ * so anything unrecognised resolves to no results rather than an error: this
+ * keyless floor degrades to the remaining sources instead of failing a search.
+ * Links arrive as redirects whose real destination is percent-encoded inside
+ * the query string, so they are decoded and re-validated before use. */
+function decodeDuckDuckGoLink(raw){
+  const href=String(raw||'').replace(/&amp;/g,'&').trim();
+  if(!href)return null;
+  try{
+    const absolute=href.startsWith('//')?'https:'+href:href;
+    const target=new URL(absolute).searchParams.get('uddg');
+    const resolved=target?decodeURIComponent(target):absolute;
+    return canonicalUrl(resolved)?.url||null;
+  }catch{return null;}
+}
+export function duckDuckGoWebResults(body){
+  const out=[];let current=null;
+  for(const [,attrs,inner] of String(body||'').matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)){
+    const cls=/class\s*=\s*"([^"]*)"/i.exec(attrs)?.[1]||'';
+    const href=/href\s*=\s*"([^"]*)"/i.exec(attrs)?.[1]||'';
+    const text=stripTags(inner);
+    if(/\bresult__a\b/.test(cls)){
+      // A new result begins; the first snippet after it belongs to this result.
+      const url=decodeDuckDuckGoLink(href);
+      current=text&&url?{title:text.slice(0,250),url,extract:''}:null;
+      if(current)out.push(current);
+    }else if(current&&!current.extract&&/\bresult__snippet\b/.test(cls)){
+      current.extract=text.slice(0,700);
+    }
+  }
+  return out.slice(0,10);
+}
 
 export const PROVIDERS=[
   {id:'wikipedia',label:'Wikipedia',family:'wikimedia',kind:'knowledge',access:'keyless',priority:50,minInterval:250,lexical:true,async run(q,env){
@@ -31,12 +66,16 @@ export const PROVIDERS=[
     }catch{return references;}
 
   }},
-  {id:'duckduckgo',label:'DuckDuckGo Instant Answers',kind:'knowledge',access:'keyless',priority:20,minInterval:1000,lexical:true,async run(q,env){
+  {id:'duckduckgo',label:'DuckDuckGo Instant Answers',family:'duckduckgo',kind:'knowledge',access:'keyless',priority:20,minInterval:1000,lexical:true,async run(q,env){
     const d=await json(params('https://api.duckduckgo.com/',{q,format:'json',no_html:1,skip_disambig:0}),{env});
     const out=[];
     if(d.AbstractURL&&d.AbstractText)out.push({title:d.Heading||q,url:d.AbstractURL,extract:d.AbstractText});
     for(const t of (d.RelatedTopics||[]).flatMap(t=>t.Topics||[t]).slice(0,8))if(t.FirstURL&&t.Text)out.push({title:t.Text.split(' - ')[0].slice(0,180),url:t.FirstURL,extract:t.Text});
     return out;
+  }},
+  {id:'duckduckgo_web',label:'DuckDuckGo Web',family:'duckduckgo',kind:'web',access:'keyless',format:'html',priority:100,minInterval:1500,async run(q,env){
+    const body=await html(params('https://html.duckduckgo.com/html/',{q,kl:'us-en'}),{env});
+    return duckDuckGoWebResults(body);
   }},
   {id:'linked_sources',label:'Wikipedia-linked sources',family:'wikimedia',kind:'knowledge',access:'keyless',priority:65,minInterval:500,lexical:true,async run(q,env){
     const d=await json(params('https://en.wikipedia.org/w/api.php',{action:'query',generator:'search',gsrsearch:websiteSubject(specialistQuery(q)),gsrlimit:3,prop:'extlinks',ellimit:50,format:'json'}),{env});

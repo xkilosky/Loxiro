@@ -13,6 +13,7 @@ const fixtures={
   clinicaltrials:{studies:[{protocolSection:{identificationModule:{nctId:'NCT12345678',briefTitle:'Quantum computing'},descriptionModule:{briefSummary:'Quantum computing study'},statusModule:{overallStatus:'RECRUITING'},conditionsModule:{conditions:['Quantum computing']}}}]},
   wikipedia:{query:{pages:{1:{title:'Quantum computing',extract:'Encyclopedia',index:1}}}},
   wikidata:{search:[{id:'Q4640',label:'Quantum computing',description:'A computation paradigm'}]},
+  duckduckgo_web:'<div class="result results_links web-result"><div class="links_main"><h2 class="result__title"><a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FQuantum_computing&amp;rut=abc">Quantum computing - Wikipedia</a></h2><a class="result__snippet" href="https://en.wikipedia.org/wiki/Quantum_computing">Quantum <b>computing</b> is a field of study.</a><div class="result__extras"><a class="result__url" href="https://en.wikipedia.org/wiki/Quantum_computing">en.wikipedia.org</a></div></div></div><div class="result results_links web-result"><div class="links_main"><h2 class="result__title"><a class="result__a" href="https://www.ibm.com/quantum">IBM Quantum</a></h2><a class="result__snippet">IBM builds quantum hardware and cloud services.</a></div></div><div class="result results_links web-result"><div class="links_main"><h2 class="result__title"><a class="result__a" href="https://example.org/anomaly">An anomalous result</a></h2></div></div><div class="result results_links web-result"><div class="links_main"><h2 class="result__title"><a class="result__a" href="https://ftp.example.org/legacy">Legacy protocol</a></h2><a class="result__snippet">A result the URL policy must reject.</a></div></div></div><div class="no-results">No results.</div>',
   duckduckgo:{Heading:'Quantum computing',AbstractURL:'https://example.org/duck',AbstractText:'Instant answer',RelatedTopics:[{Topics:[{Text:'Quantum topic - more',FirstURL:'https://example.org/topic'}]}]},
   crossref:{message:{items:[{DOI:'10.1000/quantum',title:['Quantum computing'],author:[{given:'Alice',family:'Example'}],published:{'date-parts':[[2026]]},'container-title':['Journal']}] }},
   openalex:{results:[{title:'Quantum computing',doi:'https://doi.org/10.1000/quantum',publication_year:2026,open_access:{is_oa:true}}]},
@@ -30,14 +31,16 @@ const fixtures={
   brave:{web:{results:[{title:'Quantum computing',url:'https://example.org/brave',description:'<b>Safe</b> snippet'}]}},
 };
 describe('provider registry and normalization',()=>{
-  it('has fifteen keyless adapters, three optional free-key web adapters, and two paid opt-ins',()=>{
+  it('has sixteen keyless adapters, three optional free-key web adapters, and two paid opt-ins',()=>{
     expect(new Set(PROVIDERS.map(p=>p.id)).size).toBe(PROVIDERS.length);
-    expect(PROVIDERS.filter(p=>p.access==='keyless')).toHaveLength(15);
+    expect(PROVIDERS.filter(p=>p.access==='keyless')).toHaveLength(16);
     expect(PROVIDERS.filter(p=>p.access==='free-key')).toHaveLength(3);
     expect(PROVIDERS.filter(p=>p.paid)).toHaveLength(2);
+    expect(PROVIDERS.filter(p=>p.format==='html')).toHaveLength(1);
   });
   it.each(PROVIDERS.map(p=>[p.id,p]))('normalizes the documented %s response',async(id,p)=>{
-    const fetcher=vi.fn(async()=>new Response(JSON.stringify(fixtures[id])));vi.stubGlobal('fetch',fetcher);
+    // HTML adapters read a page, not a JSON document, so the fixture is served raw.
+    const fetcher=vi.fn(async()=>new Response(p.format==='html'?fixtures[id]:JSON.stringify(fixtures[id]),{headers:{'Content-Type':p.format==='html'?'text/html; charset=utf-8':'application/json'}}));vi.stubGlobal('fetch',fetcher);
     const output=await p.run('Quantum computing',{[p.key]:'secret-value'});
     const results=Array.isArray(output)?output:output.results;
     expect(results.length).toBeGreaterThan(0);expect(results[0].title.toLowerCase()).toContain('quantum');
@@ -71,10 +74,41 @@ describe('provider registry and normalization',()=>{
     await expect(PROVIDERS.find(p=>p.id==='serpapi').run('test',{SERPAPI_API_KEY:'hidden'})).rejects.toThrow();
   });
 });
+describe('keyless web coverage',()=>{
+  const provider=PROVIDERS.find(p=>p.id==='duckduckgo_web');
+  const page=(body)=>vi.fn(async()=>new Response(body,{headers:{'Content-Type':'text/html; charset=utf-8'}}));
+  it('needs no key and shares one ranking vote with the other DuckDuckGo source',()=>{
+    expect(provider.key).toBeUndefined();expect(provider.kind).toBe('web');
+    expect(PROVIDERS.find(p=>p.id==='duckduckgo').family).toBe(provider.family);
+    const r=rankResults([{provider:'DuckDuckGo Instant Answers',family:provider.family,results:[item('Quantum','https://same.test')]},{provider:'DuckDuckGo Web',family:provider.family,results:[item('Quantum','https://same.test')]}],'quantum');
+    expect(r[0].reason).toBe('Found by related sources');expect(r[0].sources).toHaveLength(2);
+  });
+  it('decodes redirect targets instead of following them',async()=>{
+    vi.stubGlobal('fetch',page('<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org%2Fpage%3Fq%3D1&amp;rut=x">Example</a>'));
+    expect((await provider.run('example',{}))[0].url).toBe('https://example.org/page?q=1');
+  });
+  it('pairs each title with the snippet that follows it, including a missing one',async()=>{
+    vi.stubGlobal('fetch',page('<a class="result__a" href="https://a.test/one">First</a><a class="result__snippet">First snippet</a><a class="result__a" href="https://b.test/two">Second</a>'));
+    expect((await provider.run('x',{})).map(r=>[r.title,r.extract])).toEqual([['First','First snippet'],['Second','']]);
+  });
+  it('strips markup and ignores navigation links between results',async()=>{
+    vi.stubGlobal('fetch',page('<a class="result__a" href="https://a.test/one">A <b>title</b></a><a class="result__url" href="https://a.test/nav">a.test</a><a class="result__snippet">Snippet <em>text</em>.</a><a class="result__a" href="https://b.test/two">Another</a>'));
+    const results=await provider.run('x',{});
+    expect(results.map(r=>[r.title,r.extract])).toEqual([['A title','Snippet text.'],['Another','']]);
+  });
+  it('refuses links the URL policy rejects',async()=>{
+    vi.stubGlobal('fetch',page('<a class="result__a" href="ftp://a.test/one">First</a><a class="result__a" href="https://user:pass@b.test/two">Second</a><a class="result__a" href="https://c.test/three">Third</a>'));
+    expect((await provider.run('x',{})).map(r=>r.url)).toEqual(['https://c.test/three']);
+  });
+  it.each(['','<html><body>anomaly or challenge page</body></html>','{"unexpected":"json"}','<a class="result__a" href="not a url">Broken</a>'])('reports no results instead of failing on %s',async(body)=>{
+    vi.stubGlobal('fetch',page(body));
+    expect(await provider.run('x',{})).toEqual([]);
+  });
+});
 describe('relevant and bounded query planning',()=>{
   it('keeps unrelated specialists idle',()=>{
     const p=planProviders('weather in Guatemala City',PROVIDERS,{});
-    expect(p.selected).toEqual(['linked_sources','wikipedia','wikidata','duckduckgo']);expect(p.topics).toEqual(['general']);
+    expect(p.selected).toEqual(['duckduckgo_web','linked_sources','wikipedia','wikidata','duckduckgo']);expect(p.topics).toEqual(['general']);
   });
   it.each([['react useeffect error',['stackoverflow','github','hackernews']],['quantum computing research',['crossref','openalex']],['cancer treatment',['europepmc','crossref']],['Tolkien books',['openlibrary','archive']],['Beatles music',['itunes','archive']]])('routes %s to relevant sources',(q,ids)=>{
     const p=planProviders(q,PROVIDERS,{});for(const id of ids)expect(p.selected).toContain(id);
