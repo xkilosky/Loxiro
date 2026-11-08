@@ -44,7 +44,9 @@ For local development run `npm run dev:api` in a second terminal. Optional secre
 - **Smart Downloads:** verified HTTP byte-range downloads with up to 8, 16, or 32 parts per file (8 by default), size-adaptive part counts, ordered assembly, single-stream fallback, actual bytes/speed, 1–4 queued files at a time, a shared 32-request budget, cancel/retry, and persisted history. Includes a same-origin sample file to try. Browser connection limits still apply.
 - **Tab workspace:** up to 30 local tabs for searches and Veilix pages, independent search drafts, pin/unpin, duplicate, reorder, close/reopen (last 10), searchable mobile overview, confirmed bulk close, and automatic local session restoration. Website links still open externally.
 - **Spaces:** create colored collections, save links, filter, delete, and copy. Deleting a space moves its links to Reading list.
-- **Settings:** light/dark/system theme, reduced motion, recent-history toggle, new-tab preference, JSON data export **and restore**, clear data.
+- **Settings:** OLED/White/System theme, reduced motion, recent-history toggle, new-tab preference, JSON data export **and restore**, clear data.
+- **OLED-first colors:** true-black canvas, white primary actions and neutral raised surfaces. White is the secondary appearance; System remains available. Saved theme choices are respected, and the saved/default palette is applied before the app loads. Provider logos, saved collection colors and semantic error/success indicators retain their meaning.
+- **Settings:** OLED/White/System theme, reduced motion, recent-history toggle, new-tab preference, JSON data export, clear data.
 - **PWA:** manifest, generated icons, offline app shell, browser installation instructions and native install prompt where supported.
 - Responsive desktop sidebar and mobile bottom navigation; keyboard shortcuts, focus-trapped dialogs, accessible status messages, reduced-motion support.
 
@@ -197,3 +199,9 @@ Export alone was only half a data story: a backup you cannot put back is not a b
 Restore reads a local file through the browser's file picker; nothing is uploaded. In the Android shell the same control uses Android's native document picker, while blob **export** stays web-only there. Download history is not part of a backup.
 
 **Validation:** 34 added tests — 28 unit tests over parsing, sanitizing, merge, replace and caps, plus 6 jsdom tests that drive the real Settings UI (file input → confirmation → merge/replace → persisted `localStorage`, and the broken-file and not-a-backup rejections). `npm test` is **261 tests / 15 files**; typecheck and production build pass. The Playwright suites (`test:browser`, `test:tabs`, `test:downloads`, `test:android-web`, `test:research`) were **not** re-run for this change: this sandbox cannot download a Chromium build, so those remain verified at their last recorded run.
+Android preview.6 uses matching native OLED chrome, settings and tab overview; third-party pages and their previews are not recolored. Switching the hosted app to White changes Home/results, not Android’s native chrome. A new APK is needed for native palette changes.
+
+
+### Android website fullscreen — preview.7
+
+On a website, choose **⋮ → Full screen website**. Only a floating native **Tabs** count button remains; switch existing website tabs without leaving fullscreen. Android Back restores the address bar before navigating history. Rotation keeps the mode, while New tab/Home and failed pages restore normal controls. This requires the updated Android APK; it is not a hosted-PWA feature. See [native fullscreen behavior and limits](android/README.md#fullscreen-websites--preview7).

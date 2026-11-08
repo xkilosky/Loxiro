@@ -33,7 +33,7 @@ final class TabOverviewDialog extends Dialog {
         boolean restore(String id);
         void options(String id);
     }
-    private static final int INK=0xff242731, MUTED=0xff647084, ACCENT=0xff5368e8, BG=0xfff4f6fa;
+    private static final int INK=BrowserPalette.INK, MUTED=BrowserPalette.MUTED, ACCENT=BrowserPalette.ACCENT, BG=BrowserPalette.BACKGROUND;
     private final TabSession session;
     private final Map<String,Bitmap> previews;
     private final Actions actions;
@@ -58,7 +58,7 @@ final class TabOverviewDialog extends Dialog {
     private Button button(String title,String label,View.OnClickListener action){
         Button b=new Button(getContext());b.setText(title);b.setTextSize(13);b.setTextColor(INK);b.setAllCaps(false);b.setContentDescription(label);
         b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight(dp(48));b.setMinimumHeight(dp(48));b.setPadding(dp(10),0,dp(10),0);
-        b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x225368e8),shape(0x00000000,14),null));b.setOnClickListener(action);return b;
+        b.setBackground(new RippleDrawable(ColorStateList.valueOf(BrowserPalette.RIPPLE),shape(0x00000000,14),null));b.setOnClickListener(action);return b;
     }
     private void build(){
         requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -77,8 +77,8 @@ final class TabOverviewDialog extends Dialog {
         grid=column();grid.setId(R.id.tab_card_grid);scroll.addView(grid);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         notice=row();notice.setPadding(dp(18),0,dp(12),0);notice.setVisibility(View.GONE);notice.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);root.addView(notice);
         LinearLayout footer=column();footer.setPadding(dp(16),dp(8),dp(16),dp(12));
-        add=button("+  New tab","New website tab",v->actions.create());add.setId(R.id.new_tab);add.setTextColor(0xffffffff);add.setTypeface(null,Typeface.BOLD);
-        add.setBackground(new RippleDrawable(ColorStateList.valueOf(0x33ffffff),shape(ACCENT,18),null));footer.addView(add,new LinearLayout.LayoutParams(-1,dp(52)));
+        add=button("+  New tab","New website tab",v->actions.create());add.setId(R.id.new_tab);add.setTextColor(BrowserPalette.ON_ACCENT);add.setTypeface(null,Typeface.BOLD);
+        add.setBackground(new RippleDrawable(ColorStateList.valueOf(0x22000000),shape(ACCENT,18),null));footer.addView(add,new LinearLayout.LayoutParams(-1,dp(52)));
         TextView hint=text("Long-press a card for more options · Previews in memory only",10,MUTED);hint.setGravity(Gravity.CENTER);hint.setPadding(0,dp(10),0,0);footer.addView(hint);root.addView(footer);
         setContentView(root);Window window=getWindow();
         if(Build.VERSION.SDK_INT>=30){window.setDecorFitsSystemWindows(false);root.setOnApplyWindowInsetsListener((v,insets)->{
@@ -97,7 +97,7 @@ final class TabOverviewDialog extends Dialog {
         int pinCount=0;for(TabSession.Tab t:session.tabs)if(t.pinned)pinCount++;
         count.setText(session.tabs.size()+" open  ·  "+pinCount+" pinned");
         all.setText("All · "+session.tabs.size());pinned.setText("Pinned · "+pinCount);closed.setText("Closed · "+session.closed.size());
-        Button[] filters={all,pinned,closed};for(int i=0;i<filters.length;i++){boolean selected=i==filter;filters[i].setSelected(selected);filters[i].setTextColor(selected?ACCENT:MUTED);filters[i].setTypeface(null,selected?Typeface.BOLD:Typeface.NORMAL);filters[i].setBackground(new RippleDrawable(ColorStateList.valueOf(0x225368e8),shape(selected?0xffe7ebff:0x00000000,14),null));}
+        Button[] filters={all,pinned,closed};for(int i=0;i<filters.length;i++){boolean selected=i==filter;filters[i].setSelected(selected);filters[i].setTextColor(selected?ACCENT:MUTED);filters[i].setTypeface(null,selected?Typeface.BOLD:Typeface.NORMAL);filters[i].setBackground(new RippleDrawable(ColorStateList.valueOf(BrowserPalette.RIPPLE),shape(selected?BrowserPalette.RAISED:0x00000000,14),null));}
         add.setEnabled(session.tabs.size()<TabSession.MAX_TABS);add.setText(session.tabs.size()<TabSession.MAX_TABS?"+  New tab":"12 tabs open · Close one to add");
         List<TabSession.Tab> visible=new ArrayList<>();for(TabSession.Tab t:filter==2?session.closed:session.tabs)if(filter!=1||t.pinned)visible.add(t);
         grid.removeAllViews();int n=Math.max(1,columns);LinearLayout line=null;
@@ -121,18 +121,18 @@ final class TabOverviewDialog extends Dialog {
     private FrameLayout card(TabSession.Tab tab,boolean isClosed){
         boolean active=!isClosed&&tab.id.equals(session.activeId);
         FrameLayout outer=new FrameLayout(getContext());outer.setTag(tab.id);outer.setPadding(dp(2),dp(2),dp(2),dp(2));
-        GradientDrawable border=shape(active?0xffeef0ff:0xffffffff,20);border.setStroke(dp(active?2:1),active?ACCENT:0xffdfe4ed);outer.setBackground(border);outer.setClipToOutline(true);
+        GradientDrawable border=shape(active?BrowserPalette.RAISED:BrowserPalette.SURFACE,20);border.setStroke(dp(active?2:1),active?ACCENT:BrowserPalette.LINE);outer.setBackground(border);outer.setClipToOutline(true);
         LinearLayout body=column();outer.addView(body,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout header=row();header.setPadding(dp(10),0,0,0);
-        TextView initial=text(initial(tab),14,ACCENT);initial.setGravity(Gravity.CENTER);initial.setTypeface(null,Typeface.BOLD);initial.setBackground(shape(0xffe7ebff,8));initial.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);header.addView(initial,new LinearLayout.LayoutParams(dp(26),dp(28)));
+        TextView initial=text(initial(tab),14,ACCENT);initial.setGravity(Gravity.CENTER);initial.setTypeface(null,Typeface.BOLD);initial.setBackground(shape(BrowserPalette.RAISED,8));initial.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);header.addView(initial,new LinearLayout.LayoutParams(dp(26),dp(28)));
         TextView title=text(tab.label(),12,INK);title.setTypeface(null,Typeface.BOLD);title.setMaxLines(2);title.setEllipsize(TextUtils.TruncateAt.END);title.setPadding(dp(7),0,0,0);header.addView(title,new LinearLayout.LayoutParams(0,dp(52),1));title.setGravity(Gravity.CENTER_VERTICAL);
         if(!isClosed)header.addView(button("×","Close "+tab.label(),v->{actions.close(tab.id);offerUndo(tab.id);refresh();}),new LinearLayout.LayoutParams(dp(48),dp(52)));
         body.addView(header);
-        FrameLayout preview=new FrameLayout(getContext());preview.setBackgroundColor(0xffedf0f6);
+        FrameLayout preview=new FrameLayout(getContext());preview.setBackgroundColor(BrowserPalette.RAISED);
         Bitmap bitmap=isClosed?null:previews.get(tab.id);
         if(bitmap!=null){ImageView image=new ImageView(getContext());image.setImageBitmap(bitmap);image.setScaleType(ImageView.ScaleType.CENTER_CROP);image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);preview.addView(image,new FrameLayout.LayoutParams(-1,-1));}
-        else {LinearLayout placeholder=column();placeholder.setGravity(Gravity.CENTER);TextView mark=text(initial(tab),36,0xffa2aec7);mark.setGravity(Gravity.CENTER);placeholder.addView(mark);TextView message=text(isClosed?"Tap to restore":"Preview after viewing",10,MUTED);placeholder.addView(message);preview.addView(placeholder,new FrameLayout.LayoutParams(-1,-1));}
-        TextView badge=text(isClosed?"RESTORE":active?"●  CURRENT":tab.pinned?"◆  PINNED":bitmap!=null?"LAST VIEWED":"WEBSITE",9,active?ACCENT:MUTED);badge.setTypeface(null,Typeface.BOLD);badge.setPadding(dp(8),dp(5),dp(8),dp(5));badge.setBackground(shape(0xf2ffffff,8));FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM|Gravity.START);bp.setMargins(dp(8),0,dp(8),dp(8));preview.addView(badge,bp);
+        else {LinearLayout placeholder=column();placeholder.setGravity(Gravity.CENTER);TextView mark=text(initial(tab),36,BrowserPalette.MUTED);mark.setGravity(Gravity.CENTER);placeholder.addView(mark);TextView message=text(isClosed?"Tap to restore":"Preview after viewing",10,MUTED);placeholder.addView(message);preview.addView(placeholder,new FrameLayout.LayoutParams(-1,-1));}
+        TextView badge=text(isClosed?"RESTORE":active?"●  CURRENT":tab.pinned?"◆  PINNED":bitmap!=null?"LAST VIEWED":"WEBSITE",9,active?ACCENT:MUTED);badge.setTypeface(null,Typeface.BOLD);badge.setPadding(dp(8),dp(5),dp(8),dp(5));badge.setBackground(shape(0xf20c0c0c,8));FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM|Gravity.START);bp.setMargins(dp(8),0,dp(8),dp(8));preview.addView(badge,bp);
         Button pick=button("",(isClosed?"Restore ":"Go to ")+tab.label(),v->{if(isClosed){if(actions.restore(tab.id))dismiss();}else actions.select(tab.id);});
         if(!isClosed)pick.setOnLongClickListener(v->{actions.options(tab.id);return true;});preview.addView(pick,new FrameLayout.LayoutParams(-1,-1));body.addView(preview,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout bottom=row();bottom.setPadding(dp(10),0,0,0);TextView host=text(UrlPolicy.label(tab.url),10,MUTED);host.setSingleLine(true);host.setEllipsize(TextUtils.TruncateAt.MIDDLE);bottom.addView(host,new LinearLayout.LayoutParams(0,dp(48),1));host.setGravity(Gravity.CENTER_VERTICAL);

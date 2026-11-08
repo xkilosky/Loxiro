@@ -111,6 +111,13 @@ public class EverydayBrowsingTest {
         onView(withContentDescription("Exit full screen")).perform(click());onView(withId(R.id.address)).check(matches(isDisplayed()));scenario.onActivity(a->assertFalse(a.isPageFullscreen()));
         touchElement("fullscreen");SystemClock.sleep(300);androidx.test.espresso.Espresso.pressBack();onView(withId(R.id.tab_count)).check(matches(isDisplayed()));scenario.onActivity(a->assertFalse(a.isPageFullscreen()));
     }
+    @Test public void videoFullscreenReturnsToWebsiteFullscreenThenBackRestoresToolbar() throws Exception {
+        menu("Full screen website");onView(withId(R.id.fullscreen_tabs)).check(matches(isDisplayed()));
+        touchElement("fullscreen");long end=SystemClock.uptimeMillis()+7000;AtomicBoolean active=new AtomicBoolean();while(SystemClock.uptimeMillis()<end){scenario.onActivity(a->active.set(a.isPageFullscreen()));if(active.get())break;SystemClock.sleep(50);}assertTrue(active.get());awaitTitle("Playing");
+        scenario.onActivity(a->{assertTrue(a.isWebsiteFullscreen());assertFalse(a.findViewById(R.id.fullscreen_tabs).isShown());});
+        androidx.test.espresso.Espresso.pressBack();onView(withId(R.id.fullscreen_tabs)).check(matches(isDisplayed()));scenario.onActivity(a->{assertTrue(a.isWebsiteFullscreen());assertFalse(a.isPageFullscreen());assertFalse(a.findViewById(R.id.address).isShown());});
+        androidx.test.espresso.Espresso.pressBack();onView(withId(R.id.address)).check(matches(isDisplayed()));scenario.onActivity(a->assertFalse(a.isWebsiteFullscreen()));
+    }
     @Test public void incomingLinksReuseActivityWithoutLosingTabsAndShareUsesAChooser(){
         scenario.onActivity(a->a.onNewIntent(new Intent(Intent.ACTION_VIEW,Uri.parse(origin+"/other"))));awaitTitle("Features");scenario.onActivity(a->{assertEquals(2,a.nativeTabCount());assertEquals(origin+"/other",a.activeUrl());});
         scenario.recreate();awaitTitle("Features");scenario.onActivity(a->assertEquals(2,a.nativeTabCount()));

@@ -55,11 +55,15 @@ describe('restore from backup', () => {
     expect(document.querySelector('.restore-list')?.textContent).toContain('1 recent search');
     expect(screen.getByText('Merge into my data')).toBeTruthy();
     expect(stored('saved')).toHaveLength(0);
+    // The parsed counts are shown, but nothing has been persisted yet. The backup
+    // carries concurrency 4 while the app default is 2, so this value is the proof
+    // that the file's settings were not written before the user confirmed.
+    expect(stored('settings').concurrency).toBe(2);
 
     fireEvent.click(screen.getByText('Cancel'));
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Restore this backup?' })).toBeNull());
     expect(stored('saved')).toHaveLength(0);
-    expect(stored('settings').theme).not.toBe('dark');
+    expect(stored('settings')).toEqual({ theme: 'dark', defaultEngine: 'duckduckgo', concurrency: 2, downloadParts: 8, openInNewTab: true, showRecents: true, reduceMotion: false, safeMode: true });
   });
 
   it('merges a backup into local storage and reports what it added', async () => {
