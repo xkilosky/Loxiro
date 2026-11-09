@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 and below (fullBackupContent). Only the two app-private preference
+  files are backed up: tab session and browser settings. WebView cookies,
+  cache and the tab preview bitmaps are deliberately excluded -- cookies are
+  session credentials and previews can contain sensitive page content.
+-->
+<full-backup-content>
+    <include domain="sharedpref" path="native-tabs-v1.xml" />
+    <include domain="sharedpref" path="native-settings-v1.xml" />
+    <exclude domain="webview" path="." />
+    <exclude domain="file" path="." />
+    <exclude domain="database" path="." />
+</full-backup-content>

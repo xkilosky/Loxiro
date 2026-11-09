@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 and above (dataExtractionRules). cloud-backup covers restoring
+  onto a new device; device-transfer covers a direct phone-to-phone move.
+  Both carry the same two preference files and nothing else, so cookies and
+  tab previews never leave the device through a backup.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="sharedpref" path="native-tabs-v1.xml" />
+        <include domain="sharedpref" path="native-settings-v1.xml" />
+        <exclude domain="webview" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="native-tabs-v1.xml" />
+        <include domain="sharedpref" path="native-settings-v1.xml" />
+        <exclude domain="webview" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+    </device-transfer>
+</data-extraction-rules>
