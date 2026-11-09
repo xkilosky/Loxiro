@@ -1,19 +1,4 @@
 plugins { id 'com.android.application' }
-
-// Release signing. The keystore is deliberately NOT in this repository: anyone
-// holding it can publish updates as Veilix, so it is owner-managed and lives in
-// android/keystore.properties (gitignored) or, in CI, in repository secrets.
-// The whole signingConfigs block is skipped when no key is present, rather than
-// declaring a config that points at a file which does not exist -- AGP is free
-// to validate a declared config, and a missing store file would fail the build
-// for someone who has simply not set one up yet.
-def keystorePropertiesFile = rootProject.file('keystore.properties')
-def keystoreProperties = new Properties()
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-}
-def hasReleaseKeystore = keystorePropertiesFile.exists()
-
 android {
     // Source package for generated code (R, BuildConfig). Kept in step with the
     // Java sources under java/app/veilix/browser.
@@ -26,31 +11,13 @@ android {
         applicationId 'app.loxiro.browser'
         minSdk 29
         targetSdk 35
-        // Kept in step with the hosted app's package.json. The shell is only a
-        // wrapper -- the app it loads comes from the deployed site -- but a stale
-        // versionName makes the installed app look abandoned in Android's app info.
-        versionCode 8
-        versionName '0.8.0'
+        versionCode 7
+        versionName '0.7.0-preview.7'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
-    }
-    if (hasReleaseKeystore) {
-        signingConfigs {
-            release {
-                storeFile rootProject.file(keystoreProperties.getProperty('storeFile', 'veilix-release.jks'))
-                storePassword keystoreProperties.getProperty('storePassword', '')
-                keyAlias keystoreProperties.getProperty('keyAlias', '')
-                keyPassword keystoreProperties.getProperty('keyPassword', '')
-            }
-        }
     }
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-    buildTypes {
-        release {
-            minifyEnabled false
-            if (hasReleaseKeystore) signingConfig signingConfigs.release
-        }
-    }
+    buildTypes { release { minifyEnabled false } }
     testOptions { animationsDisabled true }
     lint { abortOnError true; checkReleaseBuilds true }
 }
@@ -58,6 +25,6 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test:runner:1.6.2'
-    androidTestImplementation 'androidx.test:espresso-core:3.6.1'
-    androidTestImplementation 'androidx.test:espresso-intents:3.6.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-intents:3.6.1'
 }

@@ -5,10 +5,8 @@
         <intent><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https"/></intent>
         <intent><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="http"/></intent>
     </queries>
-    <application android:label="Veilix" android:theme="@style/AppTheme"
-        android:icon="@drawable/ic_veilix" android:allowBackup="true"
-        android:fullBackupContent="@xml/backup_rules"
-        android:dataExtractionRules="@xml/data_extraction_rules"
+    <application android:label="Veilix Preview" android:theme="@style/AppTheme"
+        android:icon="@drawable/ic_veilix" android:allowBackup="false"
         android:usesCleartextTraffic="true" android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true">
         <activity android:name=".BrowserActivity" android:exported="true" android:launchMode="singleTask" android:windowSoftInputMode="adjustNothing">
