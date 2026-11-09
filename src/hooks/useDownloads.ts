@@ -30,6 +30,10 @@ export function useDownloads(concurrency: number, parts = 8) {
               if (!controller.signal.aborted) update(task.id, progress);
             }});
           controller.signal.throwIfAborted();
+          // A zero-byte body is never a real file -- it is an error page, a
+          // redirect or an empty response wearing the right status code.
+          // Saving it would report "done" and leave the user with nothing.
+          if (!blob.size) throw new Error('The source returned an empty file, so there was nothing to save. Open the source to check the link.');
           saveBlob(blob, task.filename);
           update(task.id, {status: 'done', received: blob.size, total: blob.size, speed: 0, finishedAt: Date.now()});
         } catch (e) {
