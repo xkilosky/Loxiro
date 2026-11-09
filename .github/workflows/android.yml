@@ -60,17 +60,25 @@ jobs:
           else
             python3 - <<'PY'
           import glob, os, xml.etree.ElementTree as ET
-          reports = glob.glob('app/build/reports/lint-results-debug.xml')
-          if not reports:
-              print('::error::lint failed and produced no lint-results-debug.xml report')
-          for path in reports:
-              for issue in ET.parse(path).getroot():
-                  location = issue.find('location')
-                  where = ''
-                  if location is not None:
-                      where = location.get('file', '') + ':' + (location.get('line') or '')
-                  print('::error title=Lint %s [%s]:: %s - %s' % (
-                      issue.get('id'), issue.get('severity'), where, issue.get('message', '')))
+          reports = glob.glob('app/build/reports/**/lint-results*', recursive=True)
+          print('::error::lint reports found: %s' % (reports or 'none'))
+          if reports:
+              for path in reports:
+                  if not path.endswith('.xml'):
+                      continue
+                  for issue in ET.parse(path).getroot():
+                      location = issue.find('location')
+                      where = ''
+                      if location is not None:
+                          where = location.get('file', '') + ':' + (location.get('line') or '')
+                      print('::error title=Lint %s [%s]:: %s - %s' % (
+                          issue.get('id'), issue.get('severity'), where, issue.get('message', '')))
+          else:
+              # No report means lint aborted before analysing, so dump what the
+              # build directory actually holds rather than guessing.
+              tree = glob.glob('app/build/**', recursive=True)
+              print('::error::build tree has %d entries: %s' % (
+                  len(tree), [p for p in tree if 'reports' in p or p.endswith('.xml')][:40]))
           PY
             exit 1
           fi
