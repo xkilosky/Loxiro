@@ -49,8 +49,31 @@ jobs:
       # generic "exit code 1".
       - name: JVM unit tests
         run: ./gradlew --no-daemon testDebugUnitTest
+      # abortOnError is set in build.gradle, so a lint error fails the build. The
+      # gradle output is not always reachable from outside CI, so surface each
+      # issue as a ::error annotation: those come back through the check-run
+      # annotations API and name the file, line and message.
       - name: Android lint
-        run: ./gradlew --no-daemon lintDebug
+        run: |
+          if ./gradlew --no-daemon lintDebug; then
+            echo "::notice::Android lint clean"
+          else
+            python3 - <<'PY'
+          import glob, os, xml.etree.ElementTree as ET
+          reports = glob.glob('app/build/reports/lint-results-debug.xml')
+          if not reports:
+              print('::error::lint failed and produced no lint-results-debug.xml report')
+          for path in reports:
+              for issue in ET.parse(path).getroot():
+                  location = issue.find('location')
+                  where = ''
+                  if location is not None:
+                      where = location.get('file', '') + ':' + (location.get('line') or '')
+                  print('::error title=Lint %s [%s]:: %s - %s' % (
+                      issue.get('id'), issue.get('severity'), where, issue.get('message', '')))
+          PY
+            exit 1
+          fi
       - name: Build debug APK
         run: ./gradlew --no-daemon assembleDebug
       - name: Build release APK
