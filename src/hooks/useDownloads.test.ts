@@ -162,5 +162,54 @@ describe('name collisions',()=>{
     act(()=>{result.current.add('https://example.com/app.pdf','App.pdf');});
     act(()=>{expect(result.current.add('https://example.com/app.pdf','App.pdf').status).toBe('collision');});
   });
+
+  it('calls the same filename from the same site an update',()=>{
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})));
+    const {result}=renderHook(()=>useDownloads(4));
+    act(()=>{result.current.add('https://devsite.com/preview','App.apk');});
+    act(()=>{const r=result.current.add('https://devsite.com/preview-v2','App.apk');
+      expect(r.status==='collision'&&r.kind).toBe('update');});
+  });
+
+  it('reports which site the earlier file came from',()=>{
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})));
+    const {result}=renderHook(()=>useDownloads(4));
+    act(()=>{result.current.add('https://devsite.com/preview','App.apk');});
+    act(()=>{const r=result.current.add('https://devsite.com/other','App.apk');
+      expect(r.status==='collision'&&r.source).toBe('https://devsite.com');});
+  });
+
+  it('calls the same filename from a different site a duplicate, not an update',()=>{
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})));
+    const {result}=renderHook(()=>useDownloads(4));
+    act(()=>{result.current.add('https://devsite.com/preview','App.apk');});
+    act(()=>{const r=result.current.add('https://mirror.example/App.apk','App.apk');
+      expect(r.status==='collision'&&r.kind).toBe('duplicate');
+      expect(r.status==='collision'&&r.source).toBeUndefined();});
+  });
+
+  it('treats a subdomain as a different site',()=>{
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})));
+    const {result}=renderHook(()=>useDownloads(4));
+    act(()=>{result.current.add('https://devsite.com/preview','App.apk');});
+    act(()=>{const r=result.current.add('https://cdn.devsite.com/App.apk','App.apk');
+      expect(r.status==='collision'&&r.kind).toBe('duplicate');});
+  });
+
+  it('says when the earlier file was saved, so the user can judge how stale it is',()=>{
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})));
+    const {result}=renderHook(()=>useDownloads(4));
+    act(()=>{result.current.add('https://devsite.com/preview','App.apk');});
+    act(()=>{const r=result.current.add('https://devsite.com/preview-v2','App.apk');
+      expect(r.status==='collision'&&typeof r.finishedAt).toBe('number');});
+  });
+
+  it('still offers a versioned replacement for an update',()=>{
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})));
+    const {result}=renderHook(()=>useDownloads(4));
+    act(()=>{result.current.add('https://devsite.com/preview','App.apk');});
+    act(()=>{const r=result.current.add('https://devsite.com/preview-v2','App.apk');
+      expect(r.status==='collision'&&r.replacement).toBe('App_v2.apk');});
+  });
 });
 

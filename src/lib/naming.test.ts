@@ -1,5 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { nextVersionName, splitName } from './naming';
+import { nextVersionName, originOf, splitName } from './naming';
+
+describe('where a link came from', () => {
+  it('reduces a URL to its site', () => {
+    expect(originOf('https://devsite.com/preview')).toBe('https://devsite.com');
+  });
+  it('keeps the port, which is part of the site', () => {
+    expect(originOf('http://localhost:8080/a')).toBe('http://localhost:8080');
+  });
+  it('ignores the path, so two builds of one product share a site', () => {
+    expect(originOf('https://devsite.com/preview')).toBe(originOf('https://devsite.com/preview-v2'));
+  });
+  it('separates subdomains', () => {
+    expect(originOf('https://a.devsite.com/x')).not.toBe(originOf('https://devsite.com/x'));
+  });
+  it('returns null for anything that is not a web address', () => {
+    expect(originOf('not a url')).toBeNull();
+    expect(originOf('javascript:alert(1)')).toBeNull();
+    expect(originOf('file:///etc/passwd')).toBeNull();
+  });
+});
 
 describe('splitting a filename', () => {
   it('separates a plain name from its extension', () => {

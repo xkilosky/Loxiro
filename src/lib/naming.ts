@@ -14,6 +14,14 @@
 // catch a file fetched by another browser or copied in by hand, and nothing in
 // this module pretends otherwise.
 
+/** The site a URL came from, or null when it is not a usable http(s) address. */
+export function originOf(raw: string): string | null {
+  try {
+    const u = new URL(raw);
+    return /^https?:$/.test(u.protocol) ? u.origin : null;
+  } catch { return null; }
+}
+
 /** Splits "App.tar.gz" into base "App.tar" and ext ".gz", keeping dotfiles whole. */
 export function splitName(filename: string) {
   const dot = filename.lastIndexOf('.');
