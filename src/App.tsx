@@ -61,12 +61,16 @@ export default function App() {
   const [saved,setSaved] = useState<SavedLink[]>(()=>load('saved',[]));
   const [spaces,setSpaces] = useState<Space[]>(()=>load('spaces',INITIAL_SPACES));
   const [toast,setToast] = useState('');
-  const [modal,setModal] = useState<'save'|'space'|'download'|'shortcuts'|'clear'|'tabs'|'restore'|null>(null);
+  const [modal,setModal] = useState<'save'|'space'|'download'|'shortcuts'|'clear'|'tabs'|'restore'|'collision'|null>(null);
   const [saveTitle,setSaveTitle] = useState(''); const [saveUrl,setSaveUrl] = useState('');
   const [saveSpace,setSaveSpace] = useState('inbox'); const [spaceName,setSpaceName] = useState('');
   const [spaceColor,setSpaceColor] = useState('#7A68D8'); const [activeSpace,setActiveSpace] = useState('all');
   const [savedFilter,setSavedFilter] = useState('');
   const [downloadUrl,setDownloadUrl] = useState(''); const [downloadName,setDownloadName] = useState('');
+  // What the user was about to save when Veilix noticed the name was already
+  // taken. Held separately from `modal` so the dialog can be dismissed and the
+  // pending decision dropped in one place.
+  const [collision,setCollision] = useState<{url:string;filename:string;replacement:string;prior:number}|null>(null);
   const [restoreMode,setRestoreMode] = useState<BackupMode>('merge');
   const [pendingRestore,setPendingRestore] = useState<BackupData|null>(null);
   const [restoreWarnings,setRestoreWarnings] = useState<string[]>([]);
@@ -166,7 +170,24 @@ export default function App() {
     setModal(null);setPendingRestore(null);setRestoreWarnings([]);
     setToast(describeSummary(next.summary));
   }
-  function addDownload(e:FormEvent){e.preventDefault();if(nativeAndroid){const url=safeUrl(downloadUrl.trim());if(!url){setFormError('Enter a valid HTTP or HTTPS file URL.');return;}open(url);setModal(null);setDownloadUrl('');setDownloadName('');setToast('Confirm the download in Android. Uses the system downloader, not parallel mode.');return;}if(!downloads.add(downloadUrl.trim(),downloadName)){setFormError('Enter a valid HTTP or HTTPS file URL.');return;}setModal(null);setDownloadUrl('');setDownloadName('');setToast('Added to the download queue.');}
+  function addDownload(e:FormEvent){e.preventDefault();
+    // The Android shell hands the link to the system downloader, which owns the
+    // filename from that point on -- there is no name here for Veilix to version,
+    // so the collision dialog would be offering a choice it cannot keep.
+    if(nativeAndroid){const url=safeUrl(downloadUrl.trim());if(!url){setFormError('Enter a valid HTTP or HTTPS file URL.');return;}open(url);setModal(null);setDownloadUrl('');setDownloadName('');setToast('Confirm the download in Android. Uses the system downloader, not parallel mode.');return;}
+    const result=downloads.add(downloadUrl.trim(),downloadName);
+    if(result.status==='collision'){setCollision({url:downloadUrl.trim(),filename:result.filename,replacement:result.replacement,prior:result.prior});setModal('collision');return;}
+    if(result.status!=='added'){setFormError('Enter a valid HTTP or HTTPS file URL.');return;}
+    setModal(null);setDownloadUrl('');setDownloadName('');setToast('Added to the download queue.');}
+  function resolveCollision(mode:'replace'|'keep-both'){
+    if(!collision)return;
+    const name=mode==='keep-both'?collision.replacement:collision.filename;
+    const result=downloads.add(collision.url,name,mode);
+    // The queue can change under the dialog -- a finished task can be cleared
+    // while it is open -- so re-check rather than trusting the name we chose.
+    if(result.status==='added'){setModal(null);setCollision(null);setDownloadUrl('');setDownloadName('');setToast(mode==='keep-both'?`Saving as ${name} so both are kept.`:'Replacing the file you already have.');}
+    else if(result.status==='collision'){setCollision({url:collision.url,filename:result.filename,replacement:result.replacement,prior:result.prior});}
+  }
   async function installApp(){if(install){await install.prompt();const result=await install.userChoice;if(result.outcome==='accepted')setToast('Veilix is ready for your home screen.');setInstall(null);}else setInstallHelp(v=>!v);}
   const matches=query.trim()? [...new Set([...recents.map(r=>r.query),...SUGGESTIONS])].filter(s=>s.toLowerCase().includes(query.toLowerCase())&&s!==query).slice(0,4):[];
   const bangSuggestions=query.startsWith('!')&&!query.includes(' ')?BANGS.filter(b=>b.label.startsWith(query)).slice(0,5):[];
@@ -302,13 +323,40 @@ export default function App() {
     <nav className="mobile-nav" aria-label="Mobile navigation">{NAV.map(({id,label,icon:Icon})=><button key={id} className={screen===id||(id==='home'&&screen==='results')?'active':''} onClick={()=>go(id)}><Icon size={21}/><span>{label==='Smart tools'?'Smart':label}</span>{id==='downloads'&&activeDownloads.length>0&&<b>{activeDownloads.length}</b>}</button>)}<button className={screen==='settings'?'active':''} onClick={()=>go('settings')}><Settings2 size={21}/><span>Settings</span></button></nav>
     {toast&&<div className="toast" role="status"><CheckCircle2 size={17}/>{toast}<button aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={14}/></button></div>}
     <input ref={backupInput} className="visually-hidden" type="file" accept="application/json,.json" aria-label="Choose a Veilix backup file" onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)void readBackup(file);}}/>
-    {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(null);}}><ModalShell title={modal==='save'?'A good find, kept.':modal==='space'?'Room for something new.':modal==='download'?'Let’s get that file.':modal==='clear'?'Start with a clean slate?':modal==='tabs'?'Room for every idea.':modal==='restore'?'Restore this backup?':'A few little shortcuts.'} wide={modal==='tabs'} onClose={()=>setModal(null)}>
+    {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(null);}}><ModalShell title={modal==='save'?'A good find, kept.':modal==='space'?'Room for something new.':modal==='download'?'Let’s get that file.':modal==='clear'?'Start with a clean slate?':modal==='tabs'?'Room for every idea.':modal==='restore'?'Restore this backup?':modal==='collision'?'File already exists':'A few little shortcuts.'} wide={modal==='tabs'} onClose={()=>setModal(null)}>
       {modal==='tabs'&&<TabManager workspace={tabs} onNew={newTab} onSelect={id=>{tabs.activate(id);setModal(null);}} onClose={closeTab}/>}
       {modal==='save'&&<form onSubmit={addSaved}><p className="modal-description">Give that little corner of the web a home.</p><label className="form-label">Link<input autoFocus required type="text" placeholder="https://…" value={saveUrl} onChange={e=>setSaveUrl(e.target.value)}/></label><label className="form-label">Title <span>(optional)</span><input value={saveTitle} onChange={e=>setSaveTitle(e.target.value)} placeholder="Something worth coming back to" maxLength={180}/></label><label className="form-label">Space<select value={saveSpace} onChange={e=>setSaveSpace(e.target.value)}>{spaces.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>{formError&&<p className="form-error" role="alert">{formError}</p>}<button className="primary-btn modal-submit"><Bookmark size={16}/>Save link</button></form>}
       {modal==='space'&&<form onSubmit={addSpace}><p className="modal-description">A collection for your ideas, interests, or next big thing.</p><label className="form-label">Name<input autoFocus required placeholder="Weekend reads, creative fuel…" value={spaceName} onChange={e=>setSpaceName(e.target.value)} maxLength={35}/></label><label className="form-label">A little color</label><div className="color-picker">{['#7A68D8','#38BDF8','#D88959','#428C76','#D76583','#589AB4'].map(c=><button type="button" key={c} aria-label={`Choose ${c}`} aria-pressed={spaceColor===c} style={{background:c}} onClick={()=>setSpaceColor(c)}>{spaceColor===c&&<Check size={17}/>}</button>)}</div><button className="primary-btn modal-submit"><Plus size={16}/>Create space</button></form>}
       {modal==='download'&&<form onSubmit={addDownload}><p className="modal-description">{nativeAndroid?"Paste a direct HTTP(S) file URL, then confirm Android’s download prompt. The native preview uses Android’s system downloader, not multipart mode.":"Paste a direct file URL. Veilix checks for safe parallel downloading, combines the parts, and sends the complete file to your browser’s downloads."}</p><label className="form-label">File URL<input autoFocus required type="url" placeholder="https://example.com/file.pdf" value={downloadUrl} onChange={e=>setDownloadUrl(e.target.value)}/></label>{!nativeAndroid&&<label className="form-label">Save as <span>(optional)</span><input placeholder="Leave blank to use the original filename" value={downloadName} onChange={e=>setDownloadName(e.target.value)}/></label>}<p className="tool-note">{nativeAndroid?"Keep Veilix open until the Android prompt appears. Authenticated or blob links may require an external browser.":"Source must allow CORS. Maximum 200 MB per file. Keep Veilix open during transfers."}</p>{formError&&<p className="form-error" role="alert">{formError}</p>}<button className="primary-btn modal-submit"><Download size={16}/>Add to queue</button></form>}
       {modal==='shortcuts'&&<><p className="modal-description">Less reaching. More doing.</p><div className="shortcut-help">{[['Focus search','⌘ / Ctrl + K'],['Focus search','/'],['Browse suggestions','↑ ↓'],['Search / select','Enter'],['Close dialog','Esc'],['New Veilix tab','Alt + Shift + N'],['Close Veilix tab','Alt + Shift + W'],['Reopen closed tab','Alt + Shift + T'],['Switch tab (focus tab strip)','← / → / Home / End'],['Show shortcuts','?']].filter(([label])=>!nativeAndroid||!['Focus search','Browse suggestions','Search / select','New Veilix tab','Close Veilix tab','Reopen closed tab','Switch tab (focus tab strip)'].includes(label)).map(([label,key],i)=><div key={i}><span>{label}</span><kbd>{key}</kbd></div>)}</div></>}
       {modal==='restore'&&pendingRestore&&<><p className="modal-description">{restoreMode==='replace'?'Replace swaps the sections this file contains and drops everything else in them. Sections the file does not contain stay as they are.':'Merge adds only items you do not already have. Nothing you have now is removed.'}</p><ul className="restore-list">{pendingRestore.saved.length>0&&<li><strong>{pendingRestore.saved.length}</strong> saved link{pendingRestore.saved.length===1?'':'s'}</li>}{pendingRestore.recents.length>0&&<li><strong>{pendingRestore.recents.length}</strong> recent search{pendingRestore.recents.length===1?'':'es'}</li>}{pendingRestore.spaces.length>0&&<li><strong>{pendingRestore.spaces.length}</strong> space{pendingRestore.spaces.length===1?'':'s'}</li>}{pendingRestore.tabs&&<li><strong>{pendingRestore.tabs.tabs.length}</strong> open tab{pendingRestore.tabs.tabs.length===1?'':'s'}{pendingRestore.tabs.closed.length?` · ${pendingRestore.tabs.closed.length} closed`:''}</li>}{Object.keys(pendingRestore.settings).length>0&&<li><strong>{Object.keys(pendingRestore.settings).length}</strong> setting{Object.keys(pendingRestore.settings).length===1?'':'s'}</li>}</ul>{pendingRestore.exportedAt&&<p className="restore-note">Exported {new Date(pendingRestore.exportedAt).toLocaleString()}. Duplicates, unsupported addresses, and items over the app’s limits are skipped.</p>}{restoreWarnings.length>0&&<p className="restore-warnings"><AlertTriangle size={15}/><span>{restoreWarnings.join(' ')}</span></p>}<div className="modal-actions"><button className="secondary-btn" onClick={()=>{setModal(null);setPendingRestore(null);setRestoreWarnings([]);}}>Cancel</button><button className="primary-btn" onClick={confirmRestore}>{restoreMode==='replace'?'Replace my data':'Merge into my data'}</button></div></>}
+      {modal==='collision'&&collision&&<>
+        <p className="modal-description">
+          Veilix has already saved <strong>{collision.filename}</strong>{collision.prior>1?` ${collision.prior} times`:''} from an earlier download.
+        </p>
+        <p className="tool-note">
+          A browser will not let a page look inside your Downloads folder, so Veilix
+          cannot tell whether that file is still there. It knows it has saved the name
+          before, and would rather ask than quietly save a second copy as{' '}
+          <strong>{collision.filename.replace(/(\.[^.]*)?$/, '(1)$1')}</strong>.
+        </p>
+        <div className="collision-choices">
+          <button className="collision-choice" onClick={()=>resolveCollision('replace')}>
+            <strong>Replace existing</strong>
+            <span>Save over the file you already have. Best for preview builds that update daily.</span>
+          </button>
+          <button className="collision-choice" onClick={()=>resolveCollision('keep-both')}>
+            <strong>Keep both</strong>
+            <span>
+              This download is saved as <strong>{collision.replacement}</strong>, so both files
+              stay under names you can tell apart. The earlier file keeps the name it has.
+            </span>
+          </button>
+        </div>
+        <div className="modal-actions">
+          <button className="secondary-btn" onClick={()=>{setModal(null);setCollision(null);setFormError('');}}>Cancel</button>
+        </div>
+      </>}
       {modal==='clear'&&<>{nativeAndroid&&<p className="tool-note">This clears web-app storage only. For native website tabs and cookies, use Android’s ⋮ menu → Clear browser data.</p>}<p className="modal-description">This removes your saved links, spaces, search history, open and recently closed tabs, download history, and settings from this device. Active transfers will stop. Downloaded files stay in your browser’s folder. This cannot be undone.</p><div className="modal-actions"><button className="secondary-btn" onClick={()=>setModal(null)}>Keep my data</button><button className="primary-btn danger-btn" onClick={()=>{downloads.cancelAll();for(const key of ['settings','recents','saved','spaces','downloads','tabs'])localStorage.removeItem(`loxiro:v2:${key}`);history.replaceState(null,'','#home');location.reload();}}>Clear everything</button></div></>}
     </ModalShell></div>}
   </div>;

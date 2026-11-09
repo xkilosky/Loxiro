@@ -73,6 +73,15 @@ User correction: searches must include actual websites, not only Wikipedia.
 - 133 tests pass (15 new favicon/component cases), with typecheck and build. Browser fixtures exercise an actually decoded image, missing-icon fallback, no numbered squares, existing accessibility, responsive layout, and offline behavior. Those controlled images test rendering, not live icon-service uptime.
 
 
+# v0.8 — Name collisions are asked about, not guessed
+
+- `src/lib/naming.ts` splits a filename and finds the first free `_v2`/`_v3`/... name, keeping dotfiles and extensionless names whole. A leading or trailing dot is treated as part of the name, and the version is inserted before the last extension the way Windows and macOS do.
+- `useDownloads.add` now returns `added` / `invalid` / `collision` and takes an optional `resolve` of `replace` or `keep-both`. A collision returns without queueing anything, so the user can cancel without paying for bytes; the queue is also re-checked at resolve time in case it changed while the dialog was open.
+- UI: a **File already exists** dialog with Replace existing / Keep both / Cancel, showing the name Veilix has already saved, how many times, the `(1)` the browser would have chosen instead, and the versioned name Keep both would use. Cancel keeps the URL and Save-as fields filled so the choice is retryable.
+- The Android shell is excluded: it hands the link to the system downloader, which owns the filename from that point on, so there is no name for Veilix to version and the dialog would offer a choice it cannot keep.
+- **Stated limit, not a workaround:** a web page cannot read the Downloads folder, so Veilix cannot know whether a file is still on disk, cannot overwrite one there, and cannot rename a file that has already been saved. The browser's download manager owns all three and appends “(1)” on its own. The dialog is built on the one thing Veilix genuinely knows — what it has saved itself — which catches the daily-updating-preview case but not a file fetched elsewhere or copied in by hand.
+- Validation: **341 Vitest tests across 23 files pass** (28 new: 12 naming, 8 hook collision, 8 dialog), `tsc --noEmit` clean, production build clean. Playwright suites not run in this environment (no Chromium available).
+
 # v0.5 — Smart parallel downloads (supersedes previous single-stream download details)
 
 - `src/lib/download.ts` is a browser-only transfer engine: one-byte Range GET capability probe; strong ETag and exact Content-Range validation; minimum 1 MiB per balanced part; 8/16/32-part user limits; deterministic Blob assembly in range order; live aggregate byte/speed/part progress. Every part uses If-Range, credential omission, no referrer, and no-store. No download proxy or backend billing was added.
