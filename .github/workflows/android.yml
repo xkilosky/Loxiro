@@ -51,26 +51,30 @@ jobs:
         run: ./gradlew --no-daemon testDebugUnitTest
       # abortOnError is set in build.gradle, so a lint error fails the build. lint
       # has twice failed without producing a report, which means the failure is
+      # abortOnError is set in build.gradle, so a lint error fails the build. lint
+      # has failed repeatedly without producing a report, which means the failure is
       # gradle's own rather than a lint issue. Capture the full output and surface
-      # the "What went wrong" block as ::error annotations: those come back through
-      # the check-run annotations API, which is the only channel reachable from
-      # outside CI, since the log download redirects to a blocked host.
+      # the whole FAILURE block as ::error annotations: those come back through the
+      # check-run annotations API, the only channel reachable from outside CI,
+      # since the job's log download redirects to a blocked host.
       - name: Android lint
         run: |
           ./gradlew --no-daemon lintDebug --stacktrace > /tmp/lint.log 2>&1 || true
           python3 - <<'PY'
-          keep = []
-          for line in open('/tmp/lint.log', errors='replace').read().splitlines():
-              stripped = line.strip()
-              if (stripped.startswith('* What went wrong:')
-                      or stripped.startswith('> ')
-                      or stripped.startswith('e: ')
-                      or 'FAILURE:' in line
-                      or stripped.startswith('Caused by:')):
-                  keep.append(line)
-          if not keep:
-              keep = open('/tmp/lint.log', errors='replace').read().splitlines()[-25:]
-          for line in keep[:30]:
+          lines = open('/tmp/lint.log', errors='replace').read().splitlines()
+          # Print the whole failure block. Filtering on '> ' alone is not enough:
+          # gradle emits a '> Task ...' line per task and those crowd out the
+          # real error within the annotation limit.
+          failure = [i for i, line in enumerate(lines) if 'FAILURE:' in line]
+          if failure:
+              block = lines[failure[0]:]
+          else:
+              block = [line for line in lines
+                       if line.strip().startswith('e: ')
+                       or line.strip().startswith('* What went wrong:')]
+          if not block:
+              block = ['(no FAILURE block found; %d log lines)' % len(lines)]
+          for line in block[:60]:
               message = line.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
               print('::error::' + message)
           PY
