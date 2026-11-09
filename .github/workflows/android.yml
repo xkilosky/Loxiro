@@ -61,7 +61,7 @@ jobs:
       # still attributable.
       - name: Build, test and lint
         run: |
-          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest \
+          ./gradlew --no-daemon --refresh-dependencies testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest \
             --stacktrace > /tmp/android.log 2>&1 || true
           python3 - <<'PY'
           lines = open('/tmp/android.log', errors='replace').read().splitlines()
