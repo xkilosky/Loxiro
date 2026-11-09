@@ -43,8 +43,20 @@ jobs:
             echo "keyAlias=$KEY_ALIAS"
             echo "keyPassword=$KEY_PASSWORD"
           } > keystore.properties
-      - name: Build APK, run unit tests and Android lint
-        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleRelease assembleDebugAndroidTest
+      # Split into separate steps rather than one gradle invocation: the step
+      # name then says which task failed, which matters because the job's log
+      # download is not always reachable and the annotation only carries a
+      # generic "exit code 1".
+      - name: JVM unit tests
+        run: ./gradlew --no-daemon testDebugUnitTest
+      - name: Android lint
+        run: ./gradlew --no-daemon lintDebug
+      - name: Build debug APK
+        run: ./gradlew --no-daemon assembleDebug
+      - name: Build release APK
+        run: ./gradlew --no-daemon assembleRelease
+      - name: Build instrumentation tests
+        run: ./gradlew --no-daemon assembleDebugAndroidTest
       - name: Upload installable debug APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

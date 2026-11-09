@@ -3,8 +3,10 @@ plugins { id 'com.android.application' }
 // Release signing. The keystore is deliberately NOT in this repository: anyone
 // holding it can publish updates as Veilix, so it is owner-managed and lives in
 // android/keystore.properties (gitignored) or, in CI, in repository secrets.
-// With no keystore present the release build is left unsigned rather than
-// failing, so a fresh clone and a secret-less CI run both still build.
+// The whole signingConfigs block is skipped when no key is present, rather than
+// declaring a config that points at a file which does not exist -- AGP is free
+// to validate a declared config, and a missing store file would fail the build
+// for someone who has simply not set one up yet.
 def keystorePropertiesFile = rootProject.file('keystore.properties')
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
@@ -31,12 +33,14 @@ android {
         versionName '0.8.0'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
-    signingConfigs {
-        release {
-            storeFile rootProject.file(keystoreProperties.getProperty('storeFile', 'veilix-release.jks'))
-            storePassword keystoreProperties.getProperty('storePassword', '')
-            keyAlias keystoreProperties.getProperty('keyAlias', '')
-            keyPassword keystoreProperties.getProperty('keyPassword', '')
+    if (hasReleaseKeystore) {
+        signingConfigs {
+            release {
+                storeFile rootProject.file(keystoreProperties.getProperty('storeFile', 'veilix-release.jks'))
+                storePassword keystoreProperties.getProperty('storePassword', '')
+                keyAlias keystoreProperties.getProperty('keyAlias', '')
+                keyPassword keystoreProperties.getProperty('keyPassword', '')
+            }
         }
     }
     buildFeatures { buildConfig true }
