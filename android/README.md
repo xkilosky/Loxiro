@@ -13,7 +13,31 @@ cd android
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-The **Android browser preview** GitHub workflow builds an installable debug APK (`veilix-android-preview` artifact, retained 14 days), runs JVM tests/lint, and runs real WebView tests on an Android 15 emulator. GitHub sign-in may be required to download artifacts. A debug APK is for evaluation, not a Play Store release; the ephemeral CI debug signing key can change between builds, so a later preview may require uninstalling the old one (which deletes app data). A production release needs a stable owner-managed signing key, not credentials shared in chat.
+The **Android browser preview** GitHub workflow runs JVM tests/lint and real WebView tests on an Android 15 emulator, and uploads two APK artifacts (retained 14 days): `veilix-android-debug` (always built, debug-signed) and `veilix-android-release` (signed only when the keystore secrets below are set, otherwise uploaded unsigned and not installable). GitHub sign-in may be required to download artifacts.
+
+### Release signing
+
+The signing key is **not** in this repository. Anyone holding it can publish updates as Veilix, so it is owner-managed: kept in `android/keystore.properties` (gitignored) for local builds, and in repository secrets for CI. A missing key leaves the release build unsigned rather than failing, so a fresh clone still builds.
+
+Create the key once and keep it safe — losing it means you can never update installed users again:
+
+```sh
+cd android
+keytool -genkeypair -v -keystore veilix-release.jks \
+  -alias veilix -keyalg RSA -keysize 4096 -validity 10000
+
+cat > keystore.properties <<'EOF'
+storeFile=veilix-release.jks
+storePassword=<the password you chose>
+keyAlias=veilix
+keyPassword=<the key password>
+EOF
+```
+
+For CI, add four repository secrets — `ANDROID_KEYSTORE_BASE64` (the base64 of the `.jks`), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`. The workflow materialises them into `keystore.properties` at build time and never writes them to the repo.
+
+A debug APK is still for evaluation only: its signing key is ephemeral and can change between builds, so a later preview may require uninstalling the old one (which deletes app data). Only the release build above is stable enough to hand to other people.
+
 
 ## Native tabs
 

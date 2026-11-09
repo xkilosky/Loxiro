@@ -25,13 +25,71 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
-      - name: Build APK, run unit tests and Android lint
-        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+      - name: Materialise release keystore from secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::notice::No ANDROID_KEYSTORE_BASE64 secret; the release APK will be unsigned."
+            exit 0
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > veilix-release.jks
+          {
+            echo "storeFile=veilix-release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > keystore.properties
+      # Split into separate steps rather than one gradle invocation: the step
+      # name then says which task failed, which matters because the job's log
+      # download is not always reachable and the annotation only carries a
+      # generic "exit code 1".
+      # abortOnError is set in build.gradle, so a lint error fails the build. lint
+      # has twice failed without producing a report, which means the failure is
+      # abortOnError is set in build.gradle, so a lint error fails the build. lint
+      # has failed repeatedly without producing a report, which means the failure is
+      # The gradle invocation stays in one piece. Splitting it into per-task steps
+      # looked like better diagnostics but the androidTest lint model needs the
+      # espresso classpath resolved, and running lintDebug alone made that fail
+      # with "Could not find androidx.test:espresso-core:3.6.1" even though the
+      # repositories are declared. The combined invocation resolves the same
+      # configuration for assembleDebugAndroidTest and has passed on several
+      # commits. assembleRelease is kept separate so a release-only failure is
+      # still attributable.
+      - name: Build, test and lint
+        run: |
+          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest \
+            --stacktrace > /tmp/android.log 2>&1 || true
+          python3 - <<'PY'
+          lines = open('/tmp/android.log', errors='replace').read().splitlines()
+          failure = [i for i, line in enumerate(lines) if 'FAILURE:' in line]
+          block = lines[failure[0]:] if failure else []
+          if not block:
+              block = ['(no FAILURE block; %d log lines)' % len(lines)]
+          for line in block[:60]:
+              message = line.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error::' + message)
+          PY
+          grep -q "BUILD SUCCESSFUL" /tmp/android.log && echo "::notice::Android build, tests and lint clean" || exit 1
+      - name: Build release APK
+        run: ./gradlew --no-daemon assembleRelease
       - name: Upload installable debug APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: veilix-android-preview
+          name: veilix-android-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload release APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: veilix-android-release
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
           retention-days: 14
       - name: Enable KVM for the Android emulator
