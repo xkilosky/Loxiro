@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Android 12 and below (fullBackupContent). Only the two app-private preference
-  files are backed up: tab session and browser settings. WebView cookies,
-  cache and the tab preview bitmaps are deliberately excluded -- cookies are
+  files are backed up: tab session and browser settings. WebView cookies, cache
+  and the tab preview bitmaps are deliberately excluded, because cookies are
   session credentials and previews can contain sensitive page content.
+  Note: XML comments may not contain a double hyphen, so this text uses commas.
 -->
 <full-backup-content>
     <include domain="sharedpref" path="native-tabs-v1.xml" />
