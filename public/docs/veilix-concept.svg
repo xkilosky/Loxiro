@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 900" width="420" height="900" role="img" aria-label="Veilix mobile app home screen concept">
   <defs>
     <radialGradient id="canvas" cx="50%" cy="38%" r="70%">
-      <stop offset="0%" stop-color="#F3F2EE"/>
-      <stop offset="100%" stop-color="#E8E7E1"/>
+      <stop offset="0%" stop-color="#F2F7FD"/>
+      <stop offset="100%" stop-color="#E4EDF9"/>
     </radialGradient>
     <filter id="soft" x="-30%" y="-60%" width="160%" height="220%">
       <feDropShadow dx="0" dy="4" stdDeviation="9" flood-color="#14151A" flood-opacity="0.07"/>
@@ -12,9 +12,9 @@
       .ink { fill: #14151A; }
       .muted { fill: #8E8F93; }
       .faint { fill: #A9AAAE; }
-      .accent { fill: #3B5BFF; }
+      .accent { fill: #0E7490; }
       .stroke-ink { stroke: #14151A; }
-      .stroke-accent { stroke: #3B5BFF; }
+      .stroke-accent { stroke: #0E7490; }
     </style>
   </defs>
 
@@ -22,7 +22,7 @@
   <rect width="420" height="900" fill="url(#canvas)"/>
 
   <!-- phone -->
-  <rect x="40" y="30" width="340" height="840" rx="46" fill="#F7F6F2" stroke="#DFDED8" stroke-width="1"/>
+  <rect x="40" y="30" width="340" height="840" rx="46" fill="#F2F7FD" stroke="#DFDED8" stroke-width="1"/>
 
   <!-- status bar -->
   <g class="ui">
@@ -63,9 +63,9 @@
   <!-- engine chips -->
   <g class="ui" font-size="10.5" font-weight="500">
     <!-- Google (active) -->
-    <rect x="68" y="338" width="66" height="30" rx="15" fill="#EDF0FF" stroke="#CBD4FF" stroke-width="1"/>
-    <circle cx="82" cy="353" r="3.4" fill="#3B5BFF"/>
-    <text x="91" y="357" fill="#2B3C9C">Google</text>
+    <rect x="68" y="338" width="66" height="30" rx="15" fill="#DDF2FB" stroke="#A8DDF0" stroke-width="1"/>
+    <circle cx="82" cy="353" r="3.4" fill="#0E7490"/>
+    <text x="91" y="357" fill="#0B5C73">Google</text>
     <!-- Bing -->
     <rect x="142" y="338" width="50" height="30" rx="15" fill="#FFFFFF" stroke="#E8E7E2" stroke-width="1"/>
     <circle cx="156" cy="353" r="3.4" fill="#008373"/>
@@ -93,24 +93,24 @@
     <text x="84" y="461" font-size="11" font-weight="700" text-anchor="middle" class="accent">G</text>
     <text x="110" y="453" font-size="12.5" font-weight="500" class="ink">best coffee in Guatemala City</text>
     <text x="110" y="469" font-size="10" class="faint">Google · 2h ago</text>
-    <path d="M338 452 l5 5 l-5 5" fill="none" stroke="#C9C8C3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-    <line x1="68" y1="486" x2="352" y2="486" stroke="#E9E8E3" stroke-width="1"/>
+    <path d="M338 452 l5 5 l-5 5" fill="none" stroke="#C7D8EE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="68" y1="486" x2="352" y2="486" stroke="#E9F1FB" stroke-width="1"/>
 
     <!-- row 2 -->
     <circle cx="84" cy="519" r="15" fill="#FFF0E9"/>
     <text x="84" y="523" font-size="11" font-weight="700" text-anchor="middle" fill="#D9511F">B</text>
     <text x="110" y="515" font-size="12.5" font-weight="500" class="ink">minimalist UI inspiration</text>
     <text x="110" y="531" font-size="10" class="faint">Brave · yesterday</text>
-    <path d="M338 514 l5 5 l-5 5" fill="none" stroke="#C9C8C3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-    <line x1="68" y1="548" x2="352" y2="548" stroke="#E9E8E3" stroke-width="1"/>
+    <path d="M338 514 l5 5 l-5 5" fill="none" stroke="#C7D8EE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="68" y1="548" x2="352" y2="548" stroke="#E9F1FB" stroke-width="1"/>
 
     <!-- row 3 -->
     <circle cx="84" cy="581" r="15" fill="#FDEEE8"/>
     <text x="84" y="585" font-size="11" font-weight="700" text-anchor="middle" fill="#C74E2C">D</text>
     <text x="110" y="577" font-size="12.5" font-weight="500" class="ink">how to learn rust fast</text>
     <text x="110" y="593" font-size="10" class="faint">DuckDuckGo · 3d ago</text>
-    <path d="M338 576 l5 5 l-5 5" fill="none" stroke="#C9C8C3" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-    <line x1="68" y1="610" x2="352" y2="610" stroke="#E9E8E3" stroke-width="1"/>
+    <path d="M338 576 l5 5 l-5 5" fill="none" stroke="#C7D8EE" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="68" y1="610" x2="352" y2="610" stroke="#E9F1FB" stroke-width="1"/>
   </g>
 
   <!-- interaction hint -->
@@ -123,7 +123,7 @@
 
   <!-- bottom navigation -->
   <g filter="url(#soft)">
-    <rect x="68" y="778" width="284" height="64" rx="32" fill="#FFFFFF" stroke="#E9E8E3" stroke-width="1"/>
+    <rect x="68" y="778" width="284" height="64" rx="32" fill="#FFFFFF" stroke="#E9F1FB" stroke-width="1"/>
   </g>
   <g fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
     <!-- search (active) -->
@@ -154,7 +154,7 @@
   <circle cx="104" cy="830" r="2.2" class="accent"/>
 
   <!-- home indicator -->
-  <rect x="180" y="852" width="60" height="5" rx="2.5" fill="#C9C8C3"/>
+  <rect x="180" y="852" width="60" height="5" rx="2.5" fill="#C7D8EE"/>
 
   <!-- board caption -->
   <g class="ui" font-size="9" font-weight="600" letter-spacing="2.2">

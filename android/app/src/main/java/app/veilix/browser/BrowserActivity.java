@@ -8,6 +8,7 @@ import android.app.role.RoleManager;
 import android.webkit.ValueCallback;
 import android.text.TextWatcher;
 import android.text.Editable;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Bitmap;
@@ -28,6 +29,7 @@ import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
@@ -45,6 +47,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebStorage;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -54,6 +57,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /** All browser chrome is Android UI outside every third-party WebView. */
@@ -131,6 +135,12 @@ public final class BrowserActivity extends Activity {
         Button b=new Button(this);b.setText(text);b.setTextColor(INK);b.setTextSize(14);b.setAllCaps(false);
         b.setContentDescription(label);b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight(dp(48));b.setMinimumHeight(dp(48));
         b.setPadding(dp(9),0,dp(9),0);b.setBackground(new RippleDrawable(ColorStateList.valueOf(BrowserPalette.RIPPLE),surface(Color.TRANSPARENT,14),null));b.setOnClickListener(action);return b;
+    }
+    /** Rounded, hairline-stroked card so dialogs read as the app's own surfaces. */
+    private GradientDrawable dialogBackground(){
+        GradientDrawable shape=surface(BrowserPalette.SURFACE,20);
+        shape.setStroke(dp(1),BrowserPalette.LINE);
+        return shape;
     }
     private GradientDrawable surface(int color,int radius) {
         GradientDrawable shape=new GradientDrawable();shape.setColor(color);shape.setCornerRadius(dp(radius));return shape;
@@ -386,37 +396,144 @@ public final class BrowserActivity extends Activity {
     }
     private void showTabOptions(String id) {
         TabSession.Tab tab=session.find(id);if(tab==null)return;
-        new AlertDialog.Builder(this).setTitle(tab.label()).setItems(new String[]{tab.pinned?"Unpin":"Pin","Duplicate","Move left","Move right","Close tab"},(d,which)->{
-            if(which==0){session.pin(id);renderChrome();store.save(session);}
-            if(which==1){TabSession.Tab copy=session.duplicate(id);if(copy==null)toast("Close a tab first; maximum 12.");else {dismissOverview();select(copy.id);}}
-            if(which==2||which==3){session.move(id,which==2?-1:1);renderChrome();store.save(session);}
-            if(which==4){closeTab(id);if(overview!=null)overview.offerUndo(id);}
-            refreshOverview();
-        }).show();
+        final String[] labels={tab.pinned?"Unpin":"Pin","Duplicate","Move left","Move right","Close tab"};
+        BaseAdapter adapter=new BaseAdapter(){
+            @Override public int getCount(){return labels.length;}
+            @Override public Object getItem(int position){return labels[position];}
+            @Override public long getItemId(int position){return position;}
+            @Override public int getViewTypeCount(){return 1;}
+            @Override public int getItemViewType(int position){return 0;}
+            @Override public View getView(int position,View convertView,ViewGroup parent){
+                LinearLayout row=convertView instanceof LinearLayout?(LinearLayout)convertView:menuRow();
+                ((TextView)((LinearLayout)row.getChildAt(0)).getChildAt(0)).setText(labels[position]);
+                row.getChildAt(1).setVisibility(position<labels.length-1?View.VISIBLE:View.GONE);
+                return row;
+            }
+        };
+        final AlertDialog dialog=new AlertDialog.Builder(this)
+            .setCustomTitle(menuTitle(tab.label()))
+            .setAdapter(adapter,(d,which)->{
+                if(which==0){session.pin(id);renderChrome();store.save(session);}
+                if(which==1){TabSession.Tab copy=session.duplicate(id);if(copy==null)toast("Close a tab first; maximum 12.");else {dismissOverview();select(copy.id);}}
+                if(which==2||which==3){session.move(id,which==2?-1:1);renderChrome();store.save(session);}
+                if(which==4){closeTab(id);if(overview!=null)overview.offerUndo(id);}
+                refreshOverview();
+            })
+            .setNegativeButton("Close",null)
+            .show();
+        Window window=dialog.getWindow();
+        if(window!=null)window.setBackgroundDrawable(dialogBackground());
+        Button close=dialog.getButton(DialogInterface.BUTTON_NEGATIVE);
+        if(close!=null){close.setTextColor(BrowserPalette.MUTED);close.setAllCaps(false);}
     }
     private void showOptions() {
-        new AlertDialog.Builder(this).setTitle("Veilix Android Preview").setItems(new String[]{"Browser settings","Full screen website","Find in page","Share page","Default browser","Website tabs","Reopen last closed tab","Open page in external browser","Android downloads","Close unpinned tabs","Clear browser data","About this preview","Home","Forward","Reload / stop","New tab"},(d,selected)->{
-            if(selected==1){setWebsiteFullscreen(true);return;}
-            int choice=selected>1?selected-1:selected;
-            if(choice==0){showSettings();return;}
-            if(choice==1){showFind();return;}
-            if(choice==2){sharePage();return;}
-            if(choice==3){requestDefaultBrowser();return;}
-            int which=choice-4;
-            if(which==7)navigate(home);
-            if(which==8){Page p=activePage();if(p!=null&&!p.crashed&&p.view.canGoForward())p.view.goForward();}
-            if(which==9){Page p=activePage();if(p!=null&&!p.crashed&&p.loading)p.view.stopLoading();else reloadActive();}
-            if(which==10)addTab(home,true);
-            if(which==0)showOverview();
-            if(which==1){TabSession.Tab t=session.reopen();if(t!=null)select(t.id);else toast("No closed tab, or maximum tabs reached.");}
-            if(which==2)openExternalBrowser();
-            if(which==3){try{startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS));}catch(Exception e){toast("Android downloads app is unavailable.");}}
-            if(which==4)new AlertDialog.Builder(this).setMessage("Close all unpinned website tabs? Pinned tabs stay. Only the last 10 closed tabs can reopen.").setNegativeButton("Cancel",null).setPositiveButton("Close tabs",(dialog,w)->{
-                for(TabSession.Tab tab:new ArrayList<>(session.tabs))if(!tab.pinned){previews.remove(tab.id);destroyPage(tab.id);session.close(tab.id,home);}select(session.activeId);
-            }).show();
-            if(which==5)confirmClearData();
-            if(which==6)new AlertDialog.Builder(this).setTitle("Real website tabs, native controls").setMessage("Android WebView preview, Android 10+. Website tabs stay under Veilix's toolbar. Some embedded sign-ins, camera/mic capture and blob/data downloads remain unsupported. File/photo selection, full-screen media, link sharing and Find in Page are supported. Direct HTTP(S) file downloads use Android Download Manager after confirmation, not the web app's parallel downloader. Use your external browser for unsupported workflows. This is not a hardened Chrome replacement.").setPositiveButton("OK",null).show();
+        final List<Object> rows=BrowserMenu.rows();
+        final List<Boolean> dividers=BrowserMenu.dividers(rows);
+        BaseAdapter adapter=new BaseAdapter(){
+            @Override public int getCount(){return rows.size();}
+            @Override public Object getItem(int position){return rows.get(position);}
+            @Override public long getItemId(int position){return position;}
+            @Override public int getViewTypeCount(){return 2;}
+            @Override public int getItemViewType(int position){return rows.get(position) instanceof String?0:1;}
+            @Override public View getView(int position,View convertView,ViewGroup parent){
+                if(getItemViewType(position)==0){
+                    TextView header=convertView instanceof TextView?(TextView)convertView:menuHeader();
+                    header.setText((String)rows.get(position));
+                    return header;
+                }
+                LinearLayout row=convertView instanceof LinearLayout?(LinearLayout)convertView:menuRow();
+                LinearLayout content=(LinearLayout)row.getChildAt(0);
+                ((TextView)content.getChildAt(0)).setText(((BrowserMenu.Entry)rows.get(position)).label);
+                row.getChildAt(1).setVisibility(dividers.get(position).booleanValue()?View.VISIBLE:View.GONE);
+                return row;
+            }
+        };
+        final AlertDialog dialog=new AlertDialog.Builder(this)
+            .setCustomTitle(menuTitle("Veilix Android Preview"))
+            .setAdapter(adapter,(d,which)->runMenuAction(((BrowserMenu.Entry)rows.get(which)).action))
+            .setNegativeButton("Close",null)
+            .show();
+        Window window=dialog.getWindow();
+        if(window!=null)window.setBackgroundDrawable(dialogBackground());
+        Button close=dialog.getButton(DialogInterface.BUTTON_NEGATIVE);
+        if(close!=null){close.setTextColor(BrowserPalette.MUTED);close.setAllCaps(false);}
+    }
+    /** Group headings sit above their rows, so the list stops reading as one block. */
+    private TextView menuHeader(){
+        TextView view=new TextView(this);
+        view.setTextSize(11f);
+        view.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
+        view.setLetterSpacing(.16f);
+        view.setTextColor(BrowserPalette.MUTED);
+        view.setPadding(dp(22),dp(14),dp(22),dp(4));
+        return view;
+    }
+    private TextView menuTitle(String text){
+        TextView view=new TextView(this);
+        view.setText(text);
+        view.setTextSize(17f);
+        view.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
+        view.setTextColor(BrowserPalette.INK);
+        view.setPadding(dp(22),dp(14),dp(22),dp(2));
+        return view;
+    }
+    /** A 52dp row with its label and a hairline divider the adapter shows or hides. */
+    private LinearLayout menuRow(){
+        LinearLayout row=new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout content=row();
+        content.setPadding(dp(22),0,dp(22),0);
+        content.setMinimumHeight(dp(48));
+        TextView label=new TextView(this);
+        label.setTextSize(15f);
+        label.setTextColor(BrowserPalette.INK);
+        label.setLayoutParams(new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f));
+        content.addView(label);
+        TextView chevron=new TextView(this);
+        chevron.setText("\u203a");
+        chevron.setTextSize(18f);
+        chevron.setTextColor(BrowserPalette.MUTED);
+        chevron.setGravity(Gravity.CENTER);
+        content.addView(chevron,new LinearLayout.LayoutParams(dp(14),LinearLayout.LayoutParams.MATCH_PARENT));
+        row.addView(content,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
+        View divider=new View(this);
+        divider.setBackgroundColor(BrowserPalette.LINE);
+        row.addView(divider,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,dp(1)));
+        return row;
+    }
+    /** One destination per row, so the click path no longer re-derives array offsets. */
+    private void runMenuAction(BrowserMenu.Action action){
+        switch(action){
+            case SETTINGS: showSettings(); return;
+            case FULLSCREEN: setWebsiteFullscreen(true); return;
+            case FIND: showFind(); return;
+            case SHARE: sharePage(); return;
+            case DEFAULT_BROWSER: requestDefaultBrowser(); return;
+            case OVERVIEW: showOverview(); return;
+            case REOPEN: reopenLastClosedTab(); return;
+            case OPEN_EXTERNAL: openExternalBrowser(); return;
+            case DOWNLOADS: openAndroidDownloads(); return;
+            case CLOSE_UNPINNED: confirmCloseUnpinnedTabs(); return;
+            case CLEAR_DATA: confirmClearData(); return;
+            case ABOUT: showAboutPreview(); return;
+            case HOME: navigate(home); return;
+            case FORWARD: goForward(); return;
+            case RELOAD_OR_STOP: reloadOrStop(); return;
+            case NEW_TAB: addTab(home,true); return;
+            default: return;
+        }
+    }
+    private void reopenLastClosedTab(){TabSession.Tab t=session.reopen();if(t!=null)select(t.id);else toast("No closed tab, or maximum tabs reached.");}
+    private void openAndroidDownloads(){try{startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS));}catch(Exception e){toast("Android downloads app is unavailable.");}}
+    private void goForward(){Page p=activePage();if(p!=null&&!p.crashed&&p.view.canGoForward())p.view.goForward();}
+    private void reloadOrStop(){Page p=activePage();if(p!=null&&!p.crashed&&p.loading)p.view.stopLoading();else reloadActive();}
+    private void confirmCloseUnpinnedTabs(){
+        new AlertDialog.Builder(this).setMessage("Close all unpinned website tabs? Pinned tabs stay. Only the last 10 closed tabs can reopen.").setNegativeButton("Cancel",null).setPositiveButton("Close tabs",(dialog,w)->{
+            for(TabSession.Tab tab:new ArrayList<>(session.tabs))if(!tab.pinned){previews.remove(tab.id);destroyPage(tab.id);session.close(tab.id,home);}select(session.activeId);
         }).show();
+    }
+    private void showAboutPreview(){
+        new AlertDialog.Builder(this).setTitle("Real website tabs, native controls").setMessage("Android WebView preview, Android 10+. Website tabs stay under Veilix's toolbar. Some embedded sign-ins, camera/mic capture and blob/data downloads remain unsupported. File/photo selection, full-screen media, link sharing and Find in Page are supported. Direct HTTP(S) file downloads use Android Download Manager after confirmation, not the web app's parallel downloader. Use your external browser for unsupported workflows. This is not a hardened Chrome replacement.").setPositiveButton("OK",null).show();
     }
     private void buildFindBar(LinearLayout root){
         findBar=row();findBar.setId(R.id.find_bar);findBar.setBackgroundColor(BrowserPalette.RAISED);findBar.setPadding(dp(8),0,0,0);findBar.setVisibility(View.GONE);

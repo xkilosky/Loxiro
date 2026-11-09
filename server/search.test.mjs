@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { canonicalUrl, rankResults } from './rank.mjs';
 import handler, { aggregateSearch } from './search.mjs';
+import { createProviderRuntime } from './runtime.mjs';
 
 afterEach(()=>vi.unstubAllGlobals());
 const result=(url,title='Useful result',extract='A useful result')=>({url,title,extract});
@@ -45,11 +46,35 @@ describe('parallel source aggregation',()=>{
     const data=await aggregateSearch('query',{env:{KEY:'secret'},providers:[{id:'a',label:'A',kind:'web',key:'KEY',run:async()=>[result('https://fullweb.test')]}]});
     expect(data.limitedWebCoverage).toBe(false);expect(JSON.stringify(data)).not.toContain('secret');
   });
+  it('puts keyless web destinations ahead of the references behind them, with no keys set',async()=>{
+    const page='<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.energy.gov%2Fsolar&amp;rut=x">Solar Energy Technologies Office</a><a class="result__snippet">DOE funds early-stage solar research.</a><a class="result__a" href="https://en.wikipedia.org/wiki/Solar_energy">Solar energy - Wikipedia</a><a class="result__snippet">Radiant light and heat from the Sun.</a>';
+    const fetcher=vi.fn(async url=>{
+      const href=String(url);
+      if(href.includes('html.duckduckgo.com'))return new Response(page,{headers:{'Content-Type':'text/html'}});
+      if(href.includes('en.wikipedia.org/w/api.php'))return new Response(JSON.stringify({query:{search:[{title:'Solar energy',pageid:7,snippet:'radiant <span class="searchmatch">light</span>'}]}}),{headers:{'Content-Type':'application/json'}});
+      if(href.includes('wikipedia.org/api/rest_v1/page/summary'))return new Response(JSON.stringify({title:'Solar energy',extract:'Solar energy is radiant light and heat from the Sun.'}),{headers:{'Content-Type':'application/json'}});
+      return new Response(JSON.stringify({Heading:'Solar energy',AbstractURL:'https://en.wikipedia.org/wiki/Solar_energy',AbstractText:'Radiant light and heat from the Sun.',RelatedTopics:[]}),{headers:{'Content-Type':'application/json'}});
+    });
+    vi.stubGlobal('fetch',fetcher);
+    // No environment variables at all, which is the deployed default.
+    // A fresh runtime keeps this test's circuit breakers and pacing out of the
+    // module-level shared instance the other tests in this file rely on.
+    const data=await aggregateSearch('solar energy',{env:{},runtime:createProviderRuntime()});
+    expect(data.limitedWebCoverage).toBe(false);
+    expect(data.webSearchConfigured).toBe(true);
+    expect(data.websiteCount).toBeGreaterThan(0);
+    expect(data.results[0].kind).toBe('website');
+    expect(data.results[0].domain).toBe('energy.gov');
+    // The encyclopedia entry is still present, but behind the web destination.
+    const kinds=data.results.map(r=>r.kind);
+    expect(kinds.indexOf('reference')).toBeGreaterThan(kinds.lastIndexOf('website'));
+    expect(data.results[0].sources).toContain('DuckDuckGo Web');
+  });
   it('normalizes real provider API shapes, keeps keys server-side',async()=>{
     const fetcher=vi.fn(async url=>new Response(JSON.stringify(String(url).includes('serper')?{organic:[{title:'Shared',link:'https://shared.test',snippet:'Google snippet'}]}:String(url).includes('brave')?{web:{results:[{title:'Shared',url:'https://shared.test',description:'<b>Brave</b> snippet'}]}}:String(url).includes('wikipedia')?{query:{pages:{1:{title:'Shared topic',extract:'An encyclopedia article',index:1}}}}:{Heading:'Shared topic',AbstractURL:'https://shared.test',AbstractText:'Instant answer',RelatedTopics:[]})));
     vi.stubGlobal('fetch',fetcher);
     const data=await aggregateSearch('shared',{env:{SERPER_API_KEY:'server-secret',BRAVE_SEARCH_API_KEY:'server-secret',LOXIRO_ALLOW_PAID_PROVIDERS:'1'}});
-    expect(fetcher).toHaveBeenCalledTimes(6);expect(data.results[0].sources).toHaveLength(3);expect(data.providers.filter(p=>!['not_configured','skipped'].includes(p.status)).every(p=>p.status==='ok')).toBe(true);expect(JSON.stringify(data)).not.toContain('server-secret');
+    expect(fetcher).toHaveBeenCalledTimes(7);expect(data.results[0].sources).toHaveLength(3);expect(data.providers.filter(p=>!['not_configured','skipped'].includes(p.status)).every(p=>p.status==='ok')).toBe(true);expect(JSON.stringify(data)).not.toContain('server-secret');
   });
 });
 describe('HTTP boundary',()=>{

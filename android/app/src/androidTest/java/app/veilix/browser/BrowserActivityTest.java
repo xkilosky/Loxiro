@@ -52,28 +52,28 @@ public class BrowserActivityTest {
         Intent intent=new Intent(context,BrowserActivity.class);intent.putExtra("test_home",origin+"/one");scenario=ActivityScenario.launch(intent);
         awaitTitle("First fixture");
     }
-    @Test public void oledChromeUsesBlackSurfacesAndWhiteText() throws Exception {
+    @Test public void arcticChromeUsesNavySurfacesAndCyanText() throws Exception {
         scenario.onActivity(activity->{
             android.widget.EditText address=activity.findViewById(R.id.address);
             // The HTTP fixture deliberately retains its readable insecure-connection warning.
             assertEquals(BrowserPalette.ERROR,address.getCurrentTextColor());
-            assertEquals(android.graphics.Color.WHITE,((android.widget.Button)activity.findViewById(R.id.tab_count)).getCurrentTextColor());
+            assertEquals(BrowserPalette.ACCENT,((android.widget.Button)activity.findViewById(R.id.tab_count)).getCurrentTextColor());
             assertEquals(BrowserPalette.MUTED,address.getCurrentHintTextColor());
             View root=(View)activity.findViewById(R.id.browser_toolbar).getParent();
-            assertEquals(android.graphics.Color.BLACK,((android.graphics.drawable.ColorDrawable)root.getBackground()).getColor());
+            assertEquals(BrowserPalette.BACKGROUND,((android.graphics.drawable.ColorDrawable)root.getBackground()).getColor());
             android.content.res.TypedArray attrs=activity.obtainStyledAttributes(new int[]{android.R.attr.windowLightStatusBar,android.R.attr.windowLightNavigationBar});
             assertFalse(attrs.getBoolean(0,true));assertFalse(attrs.getBoolean(1,true));attrs.recycle();
         });
         onView(withId(R.id.tab_count)).perform(click());
         onView(withId(R.id.new_tab)).check((view,error)->{
             if(error!=null)throw error;
-            assertEquals(android.graphics.Color.BLACK,((android.widget.Button)view).getCurrentTextColor());
+            assertEquals(BrowserPalette.ON_ACCENT,((android.widget.Button)view).getCurrentTextColor());
         });
-        saveScreenshot("oled-tab-overview.png");
+        saveScreenshot("arctic-tab-overview.png");
         onView(withContentDescription("Return to website")).perform(click());
-        openBrowserSettings();saveScreenshot("oled-browser-settings.png");
+        openBrowserSettings();saveScreenshot("arctic-browser-settings.png");
         onView(withContentDescription("Close browser settings")).perform(click());
-        saveScreenshot("oled-browser-toolbar.png");
+        saveScreenshot("arctic-browser-toolbar.png");
     }
     private void serve(Socket socket) {
         try(Socket s=socket){

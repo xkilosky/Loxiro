@@ -51,6 +51,10 @@ describe('research quality regressions',()=>{
   it('keeps reference caps and website diversity in a mixed feed',()=>{
     const r=rankResults([{provider:'Wiki',family:'wikimedia',results:Array.from({length:8},(_,i)=>item(`https://en.wikipedia.org/wiki/Solar_${i}`,'Solar energy'))},{provider:'Papers',kind:'research',results:Array.from({length:8},(_,i)=>item(`https://doi.org/10.${1000+i}/solar`,'Solar energy review'))}],'solar energy');expect(r).toHaveLength(10);expect(r.filter(r=>r.kind==='reference')).toHaveLength(2);expect(r[0].contentType).toBe('paper');
   });
+  it('puts every web destination ahead of the encyclopedia references behind them',()=>{
+    const r=rankResults([{provider:'Wikipedia',family:'wikimedia',kind:'reference',results:[item('https://en.wikipedia.org/wiki/Solar','Solar energy')]},{provider:'DuckDuckGo Web',kind:'website',results:[item('https://energy.gov/solar','Solar Energy Technologies Office'),item('https://nasa.gov/solar','Solar at NASA'),item('https://noaa.gov/solar','Solar at NOAA')]}],'solar energy');
+    expect(r.map(x=>x.kind)).toEqual(['website','website','website','reference']);expect(r[3].domain).toBe('en.wikipedia.org');
+  });
 });
 describe('transparent external source discovery',()=>{
   it('bounds discovery, retains its article trail, and never fetches discovered URLs',()=>{

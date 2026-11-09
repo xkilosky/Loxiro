@@ -14,7 +14,16 @@ export function safeUrl(raw: string): string | null {
 }
 export function saveBlob(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+  // The anchor has to be in the document for the click to start a download.
+  // A detached element is silently ignored by some browsers, which showed up
+  // as a task reporting "done" with no file anywhere on disk.
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.rel = 'noopener'; a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Revoke only once the browser has had time to read the blob, not on the
+  // next tick, or the saved file can come out empty.
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 export function formatBytes(n: number) {

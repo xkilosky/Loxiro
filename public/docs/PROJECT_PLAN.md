@@ -145,21 +145,21 @@ Real search API results in-app, AI-generated answers, accounts/sync, browser tab
 
 ### Direction: "Quiet precision"
 
-Swiss-influenced minimalism: a strict spacing grid, one typeface family, hairline borders instead of heavy shadows, and a single accent color used only for active/primary states. Warm neutral paper rather than clinical pure white.
+Swiss-influenced minimalism: a strict spacing grid, one typeface family, hairline borders instead of heavy shadows, and a single accent color used only for active/primary states. Arctic Cyan is the default appearance: a deep navy ground with cyan accents. The light theme is a cool tint rather than clinical pure white.
 
 ### Color tokens
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--paper` | `#F7F6F2` | `#0C0D10` | App background |
-| `--surface` | `#FFFFFF` | `#15161B` | Cards, sheets, nav |
-| `--ink` | `#14151A` | `#F2F2F4` | Primary text |
-| `--muted` | `#6E6F74` | `#9A9BA1` | Secondary text |
-| `--faint` | `#A9AAAE` | `#6E6F75` | Placeholders, labels |
-| `--line` | `#E7E6E1` | `#26272D` | Hairline borders |
-| `--accent` | `#3B5BFF` | `#7E92FF` | Active state, links, focus |
-| `--accent-soft` | `#EDF0FF` | `#1B2140` | Active chip / selected row |
-| `--danger` | `#D64545` | `#FF7A7A` | Destructive actions |
+| `--bg` | `#F2F7FD` | `#080B14` | App background |
+| `--surface` | `#FFFFFF` | `#0F1524` | Cards, sheets, nav |
+| `--ink` | `#0A1220` | `#E8F1FF` | Primary text |
+| `--muted` | `#4A5878` | `#97A6C8` | Secondary text |
+| `--subtle` | `#5A6884` | `#78849F` | Placeholders, labels |
+| `--line` | `#B4CCEF` | `#2C3A5A` | Hairline borders |
+| `--accent` | `#0E7490` | `#5FD9F0` | Active state, links, focus |
+| `--accent-soft` | `#DDF2FB` | `#0E2A38` | Active chip / selected row |
+| `--danger` | `#B4443F` | `#E97B78` | Destructive actions |
 
 Engine identity colors (dots only, never large fills): Google `#4285F4`, Bing `#008373`, DuckDuckGo `#DE5833`, Brave `#FB542B`.
 
@@ -172,8 +172,12 @@ Engine identity colors (dots only, never large fills): Google `#4285F4`, Bing `#
 ### Spacing, radius, elevation
 
 - 4px base grid: `4, 8, 12, 16, 24, 32, 48, 64`.
-- Radius: `12` cards, `16` sheets, `999` pills/chips, `32` floating nav.
-- Elevation: one soft shadow (`0 4px 16px rgba(20,21,26,.07)`) on the search field and bottom nav only. Everywhere else, a 1px `--line` border.
+- Radius: a three-step scale exposed as tokens and used everywhere, instead of one-off values per component — `--radius-sm:10px` (buttons, chips, inputs, list rows), `--radius-md:14px` (cards, panels, the source list, toasts), `--radius-lg:18px` (hero surfaces: search field, tool workspace, empty states). Pills and the floating nav keep their own large radii.
+- Elevation: three tokens — `--shadow-sm` (resting cards and the primary button), `--shadow-md` (hover lift), `--shadow-ring` (focus ring, tinted with the accent). Both are defined per theme so the shadow colour follows the ground rather than assuming black. Hairline `--line` borders remain the default separator; elevation is reserved for interactive and raised surfaces.
+- Focus: every interactive element gets a 2px accent outline at 2px offset plus `--shadow-ring`, so keyboard focus is visible on both grounds.
+- Motion: buttons and rows transition background, colour, border and transform over `.16s`; presses are `translateY(1px)` and hovers lift `1px`. `prefers-reduced-motion` is respected globally.
+
+The radius, elevation and legibility floors are pinned by `scripts/design-system.test.mjs`, so a component cannot quietly reintroduce a one-off radius or sub-8px type.
 
 ### Motion
 
