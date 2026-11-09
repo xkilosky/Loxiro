@@ -6,9 +6,9 @@ import {
   Bookmark, Zap, ShieldCheck, ExternalLink, Copy, Calculator, ArrowLeftRight,
   Palette, Type, RefreshCw, FileDown, Pause, CheckCircle2, AlertCircle, WifiOff,
   Sun, Moon, Monitor, Smartphone, Keyboard, Folder, Link2, LoaderCircle, Menu,
-  Upload, AlertTriangle,
+  Upload, AlertTriangle, Ban,
 } from 'lucide-react';
-import type { EngineId, Screen, Settings, SavedLink, Space, RecentSearch, SearchProviderState } from './types';
+import type { EngineId, Screen, Settings, SavedLink, Space, RecentSearch, SearchProviderState, DownloadTask } from './types';
 import { WEB_ENGINES, VERTICAL_ENGINES, getEngine, engineUrl } from './data/engines';
 import { BANGS } from './data/bangs';
 import { QUICK_EXAMPLES, SUGGESTIONS } from './data/suggestions';
@@ -83,7 +83,8 @@ export default function App() {
   const [colorInput,setColorInput] = useState('#38BDF8'); const [textInput,setTextInput] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const downloads = useDownloads(settings.concurrency, settings.downloadParts);
-  const activeDownloads = downloads.tasks.filter(t=>['queued','downloading'].includes(t.status)).length;
+  const activeDownloads = downloads.tasks.filter(t=>['queued','downloading'].includes(t.status));
+  const historyDownloads = downloads.tasks.filter(t=>!['queued','downloading'].includes(t.status));
   const smart = analyze(query,engine);
 
   useEffect(()=>persist('settings',settings),[settings]);
@@ -196,7 +197,7 @@ export default function App() {
     <aside className="sidebar">
       <button className="wordmark" onClick={()=>go('home')} aria-label="Veilix home"><VeilixMark size={30}/>Veilix<span className="wordmark-dot">.</span></button>
       <div className="sidebar-label">YOUR EVERYDAY, REFINED</div>
-      <nav className="desktop-nav" aria-label="Main navigation">{NAV.map(({id,label,icon:Icon})=><button key={id} className={(screen===id||(id==='home'&&screen==='results'))?'active':''} onClick={()=>go(id)}><Icon size={19} strokeWidth={1.8}/><span>{label}</span>{id==='downloads'&&activeDownloads>0?<b className="nav-count">{activeDownloads}</b>:id==='smart'?<span className="nav-new">NEW</span>:null}{id==='home'&&!nativeAndroid&&<kbd>⌘ K</kbd>}</button>)}</nav>
+      <nav className="desktop-nav" aria-label="Main navigation">{NAV.map(({id,label,icon:Icon})=><button key={id} className={(screen===id||(id==='home'&&screen==='results'))?'active':''} onClick={()=>go(id)}><Icon size={19} strokeWidth={1.8}/><span>{label}</span>{id==='downloads'&&activeDownloads.length>0?<b className="nav-count">{activeDownloads.length}</b>:id==='smart'?<span className="nav-new">NEW</span>:null}{id==='home'&&!nativeAndroid&&<kbd>⌘ K</kbd>}</button>)}</nav>
       <div className="sidebar-spaces"><div className="sidebar-section"><span>YOUR SPACES</span><button className="tiny-btn" aria-label="Create a space" onClick={()=>setModal('space')}><Plus size={16}/></button></div>{spaces.slice(0,5).map(s=><button key={s.id} onClick={()=>{setActiveSpace(s.id);go('spaces');}}><span className="space-dot" style={{background:s.color}}/>{s.name}<span className="quiet">{saved.filter(x=>x.spaceId===s.id).length}</span></button>)}<button className="create-space" onClick={()=>setModal('space')}><Plus size={15}/>New space</button></div>
       <div className="sidebar-bottom"><div className="local-badge"><ShieldCheck size={15}/><span>Your space. Your data.</span><span className="status-dot"/></div><button className={`settings-nav ${screen==='settings'?'active':''}`} onClick={()=>go('settings')}><Settings2 size={18}/>Settings<span className="version">v0.7</span></button></div>
     </aside>
@@ -272,10 +273,18 @@ export default function App() {
         </>:<>
           {pageHeading('LESS WAITING. MORE DOING.','Your next download, in flow.','One file. Multiple lanes. Real progress, straight from the source.',<button className="primary-btn" onClick={()=>setModal('download')}><Plus size={17}/>New download</button>)}
           <div className="download-smart-panel"><div><span className="overview-icon peach"><Zap size={22}/></span><div><strong>Smart parallel download</strong><p>Split compatible files into byte ranges. Use fewer parts for small files. Fall back safely when needed.</p></div></div><label className="parts-select">Parts per file<select aria-label="Parts per file" value={settings.downloadParts} onChange={e=>setSettings(s=>({...s,downloadParts:Number(e.target.value)}))}>{[8,16,32,1].map(n=><option key={n} value={n}>{n===1?'1 · single stream':`Up to ${n} parts${n===8?' · recommended':''}`}</option>)}</select></label></div>
-          <div className="download-overview"><div><span className="overview-icon"><Download size={21}/></span><span><strong>{activeDownloads}</strong><small>In your queue</small></span></div><div><span className="overview-icon green"><CheckCircle2 size={21}/></span><span><strong>{downloads.tasks.filter(t=>t.status==='done').length}</strong><small>Completed</small></span></div><div><span className="overview-icon peach"><Zap size={21}/></span><span><strong>{formatBytes(downloads.tasks.reduce((n,t)=>n+t.speed,0))}<em>/s</em></strong><small>Current transfer speed</small></span></div></div>
-          <div className="section-heading"><h2>Transfer activity<span>Files save to your browser’s download folder.</span></h2>{downloads.tasks.length>0&&<button className="text-btn" onClick={downloads.clear}>Clear finished</button>}</div>
-          {downloads.tasks.length?<div className="download-list">{downloads.tasks.map(t=><article key={t.id} className="download-row"><span className={`file-icon ${t.status==='done'?'done':''}`}>{t.status==='done'?<Check size={21}/>:t.status==='error'?<AlertCircle size={21}/>:<FileDown size={21}/>}</span><div className="download-info"><strong>{t.filename}</strong><small>{new URL(t.url).hostname} <span>· {t.status==='done'?`Saved to browser${t.mode==='parallel'?` · ${t.parts} parts`:''}`:t.status==='downloading'?`${formatBytes(t.received)}${t.total?' / '+formatBytes(t.total):''} · ${formatBytes(t.speed)}/s`:t.status}</span></small>{t.status==='downloading'&&<div className={`progress ${!t.total?'indeterminate':''}`} role="progressbar" aria-label={`Downloading ${t.filename}`} aria-valuenow={t.total?Math.min(100,Math.round(t.received/t.total*100)):undefined} aria-valuemin={0} aria-valuemax={100}><span style={{width:t.total?`${Math.min(100,t.received/t.total*100)}%`:'30%'}}/></div>}{t.mode&&['downloading','done'].includes(t.status)&&<div className="transfer-detail"><span className={`transfer-mode ${t.mode}`}><Zap size={12}/>{t.mode==='checking'?'Checking source':t.mode==='parallel'?`${t.completedParts || 0}/${t.parts} parts complete`:'Single connection'}</span><span>{t.transferNote}</span></div>}{t.error&&<p className="download-error">{t.error}</p>}</div><div className="download-actions">{['downloading','queued'].includes(t.status)?<button className="icon-btn" aria-label={`Cancel ${t.filename}`} onClick={()=>downloads.cancel(t.id)}><X size={17}/></button>:t.status!=='done'?<button className="icon-btn" aria-label={`Retry ${t.filename}`} onClick={()=>downloads.retry(t.id)}><RefreshCw size={17}/></button>:null}<button className="icon-btn" aria-label={`Open source for ${t.filename}`} onClick={()=>open(t.url)}><ExternalLink size={17}/></button></div></article>)}</div>:<div className="empty-state download-empty"><div className="empty-illustration"><Download size={38} strokeWidth={1.3}/><span><Zap size={17}/></span></div><h2>Ready when you are.</h2><p>Add a direct file link and let Veilix handle the queue. Progress stays clear. Your flow stays uninterrupted.</p><button className="secondary-btn" onClick={()=>setModal('download')}><Link2 size={16}/>Add a file URL</button><button className="text-btn" onClick={()=>{if(nativeAndroid){open(`${location.origin}/docs/veilix-concept.png`);return;}downloads.add(`${location.origin}/docs/veilix-concept.png`,'veilix-concept.png');setToast('Example download added.');}}>Try it with the Veilix concept<ArrowDownIcon/></button></div>}
-          <div className="download-disclaimer"><ShieldCheck size={21}/><div><strong>Direct, not magic.</strong><p>Veilix uses up to {settings.downloadParts} parts per file, with a shared 32-request budget across the queue. Browser connection limits also apply. More parts do not guarantee more speed. Parallel mode needs byte ranges, a strong ETag, and CORS access to response headers (Content-Range and ETag) plus permission for Range / If-Range requests. Unsupported sources use one connection; CORS-blocked sources need “Open source.” Files are buffered in memory: maximum 200 MB each. Keep Veilix open.</p></div></div>
+          <div className="download-overview"><div><span className="overview-icon"><Download size={21}/></span><span><strong>{activeDownloads.length}</strong><small>In your queue</small></span></div><div><span className="overview-icon green"><CheckCircle2 size={21}/></span><span><strong>{downloads.tasks.filter(t=>t.status==='done').length}</strong><small>Completed</small></span></div><div><span className="overview-icon peach"><Zap size={21}/></span><span><strong>{formatBytes(downloads.tasks.reduce((n,t)=>n+t.speed,0))}<em>/s</em></strong><small>Current transfer speed</small></span></div></div>
+          {downloads.tasks.length?<div className="download-sections">
+          <section className="download-section">
+            <div className="section-heading"><h2>Downloading<span>{activeDownloads.length?`${activeDownloads.length} in flight · files save to your browser’s download folder`:'Nothing is transferring right now'}</span></h2>{activeDownloads.length>0&&<button className="text-btn" onClick={downloads.cancelAll}>Cancel all</button>}</div>
+            {activeDownloads.length?<div className="download-list">{activeDownloads.map(t=><DownloadRow key={t.id} task={t} onCancel={()=>downloads.cancel(t.id)} onRetry={()=>downloads.retry(t.id)} onOpen={()=>open(t.url)}/>)}</div>:<p className="section-empty"><Download size={15}/>Add a direct file link and it will appear here with live progress, speed and part count.</p>}
+          </section>
+          <section className="download-section">
+            <div className="section-heading history"><h2>Download history<span>{historyDownloads.length?`${historyDownloads.length} finished transfer${historyDownloads.length===1?'':'s'}`:'Completed, failed and cancelled transfers stay here'}</span></h2>{historyDownloads.length>0&&<button className="text-btn" onClick={downloads.clear}>Clear history</button>}</div>
+            {historyDownloads.length?<div className="download-list">{historyDownloads.map(t=><DownloadRow key={t.id} task={t} onCancel={()=>downloads.cancel(t.id)} onRetry={()=>downloads.retry(t.id)} onOpen={()=>open(t.url)}/>)}</div>:<p className="section-empty"><Clock3 size={15}/>Nothing has finished yet. A failed transfer can be retried from here.</p>}
+          </section>
+        </div>:<div className="empty-state download-empty"><div className="empty-illustration"><Download size={38} strokeWidth={1.3}/><span><Zap size={17}/></span></div><h2>Ready when you are.</h2><p>Add a direct file link and let Veilix handle the queue. Progress stays clear. Your flow stays uninterrupted.</p><button className="secondary-btn" onClick={()=>setModal('download')}><Link2 size={16}/>Add a file URL</button><button className="text-btn" onClick={()=>{if(nativeAndroid){open(`${location.origin}/docs/veilix-concept.png`);return;}downloads.add(`${location.origin}/docs/veilix-concept.png`,'veilix-concept.png');setToast('Example download added.');}}>Try it with the Veilix concept<ArrowDownIcon/></button></div>}
+        <div className="download-disclaimer"><ShieldCheck size={21}/><div><strong>Direct, not magic.</strong><p>Veilix uses up to {settings.downloadParts} parts per file, with a shared 32-request budget across the queue. Browser connection limits also apply. More parts do not guarantee more speed. Parallel mode needs byte ranges, a strong ETag, and CORS access to response headers (Content-Range and ETag) plus permission for Range / If-Range requests. Unsupported sources use one connection; CORS-blocked sources need “Open source.” Files are buffered in memory: maximum 200 MB each. Keep Veilix open.</p></div></div>
         </>)}
 
         {screen==='settings'&&<>
@@ -290,7 +299,7 @@ export default function App() {
       </main>
     </div>
 
-    <nav className="mobile-nav" aria-label="Mobile navigation">{NAV.map(({id,label,icon:Icon})=><button key={id} className={screen===id||(id==='home'&&screen==='results')?'active':''} onClick={()=>go(id)}><Icon size={21}/><span>{label==='Smart tools'?'Smart':label}</span>{id==='downloads'&&activeDownloads>0&&<b>{activeDownloads}</b>}</button>)}<button className={screen==='settings'?'active':''} onClick={()=>go('settings')}><Settings2 size={21}/><span>Settings</span></button></nav>
+    <nav className="mobile-nav" aria-label="Mobile navigation">{NAV.map(({id,label,icon:Icon})=><button key={id} className={screen===id||(id==='home'&&screen==='results')?'active':''} onClick={()=>go(id)}><Icon size={21}/><span>{label==='Smart tools'?'Smart':label}</span>{id==='downloads'&&activeDownloads.length>0&&<b>{activeDownloads.length}</b>}</button>)}<button className={screen==='settings'?'active':''} onClick={()=>go('settings')}><Settings2 size={21}/><span>Settings</span></button></nav>
     {toast&&<div className="toast" role="status"><CheckCircle2 size={17}/>{toast}<button aria-label="Dismiss notification" onClick={()=>setToast('')}><X size={14}/></button></div>}
     <input ref={backupInput} className="visually-hidden" type="file" accept="application/json,.json" aria-label="Choose a Veilix backup file" onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)void readBackup(file);}}/>
     {modal&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setModal(null);}}><ModalShell title={modal==='save'?'A good find, kept.':modal==='space'?'Room for something new.':modal==='download'?'Let’s get that file.':modal==='clear'?'Start with a clean slate?':modal==='tabs'?'Room for every idea.':modal==='restore'?'Restore this backup?':'A few little shortcuts.'} wide={modal==='tabs'} onClose={()=>setModal(null)}>
@@ -310,6 +319,28 @@ function Toggle({title,description,checked,onChange}:{title:string;description:s
  *  so the wordmark, the install card and the app icon cannot drift apart. */
 function VeilixMark({size=30}:{size?:number}) {
   return <img src="/icons/icon.svg" alt="" width={size} height={size} className="veilix-mark" draggable={false}/>;
+}
+function formatWhen(ts: number) {
+  const mins = Math.floor((Date.now() - ts) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days} d ago`;
+  const d = new Date(ts), now = new Date();
+  return d.toLocaleDateString(undefined, d.getFullYear() === now.getFullYear() ? {day: 'numeric', month: 'short'} : {day: 'numeric', month: 'short', year: 'numeric'});
+}
+function statusLabel(t: DownloadTask) {
+  if (t.status === 'done') return `Saved to browser${t.mode === 'parallel' ? ` · ${t.parts} parts` : ''}`;
+  if (t.status === 'downloading') return `${formatBytes(t.received)}${t.total ? ' / ' + formatBytes(t.total) : ''} · ${formatBytes(t.speed)}/s`;
+  if (t.status === 'queued') return 'Waiting for a free slot';
+  if (t.status === 'cancelled') return 'Cancelled';
+  return 'Failed';
+}
+function DownloadRow({task: t, onCancel, onRetry, onOpen}: {task: DownloadTask; onCancel: () => void; onRetry: () => void; onOpen: () => void}) {
+  const active = ['downloading', 'queued'].includes(t.status);
+  return <article className={`download-row ${t.status}`}><span className={`file-icon ${t.status === 'done' ? 'done' : ''} ${t.status === 'error' ? 'failed' : ''}`}>{t.status === 'done' ? <Check size={21}/> : t.status === 'error' ? <AlertCircle size={21}/> : t.status === 'cancelled' ? <Ban size={21}/> : t.status === 'queued' ? <Clock3 size={21}/> : <FileDown size={21}/>}</span><div className="download-info"><strong>{t.filename}</strong><small>{new URL(t.url).hostname} <span>· {statusLabel(t)}{!active && t.finishedAt ? ` · ${formatWhen(t.finishedAt)}` : ''}</span></small>{t.status === 'downloading' && <div className={`progress ${!t.total ? 'indeterminate' : ''}`} role="progressbar" aria-label={`Downloading ${t.filename}`} aria-valuenow={t.total ? Math.min(100, Math.round(t.received / t.total * 100)) : undefined} aria-valuemin={0} aria-valuemax={100}><span style={{width: t.total ? `${Math.min(100, t.received / t.total * 100)}%` : '30%'}}/></div>}{t.mode && ['downloading', 'done'].includes(t.status) && <div className="transfer-detail"><span className={`transfer-mode ${t.mode}`}><Zap size={12}/>{t.mode === 'checking' ? 'Checking source' : t.mode === 'parallel' ? `${t.completedParts || 0}/${t.parts} parts complete` : 'Single connection'}</span><span>{t.transferNote}</span></div>}{t.error && t.error !== statusLabel(t) && <p className="download-error">{t.error}</p>}</div><div className="download-actions">{active ? <button className="icon-btn" aria-label={`Cancel ${t.filename}`} onClick={onCancel}><X size={17}/></button> : t.status !== 'done' ? <button className="icon-btn" aria-label={`Retry ${t.filename}`} onClick={onRetry}><RefreshCw size={17}/></button> : null}<button className="icon-btn" aria-label={`Open source for ${t.filename}`} onClick={onOpen}><ExternalLink size={17}/></button></div></article>;
 }
 function ArrowDownIcon(){return <Download size={13}/>;}
 function ModalShell({title,onClose,children,wide=false}:{title:string;onClose:()=>void;children:React.ReactNode;wide?:boolean}) {

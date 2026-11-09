@@ -37,7 +37,9 @@ export function useDownloads(concurrency: number, parts = 8) {
           saveBlob(blob, task.filename);
           update(task.id, {status: 'done', received: blob.size, total: blob.size, speed: 0, finishedAt: Date.now()});
         } catch (e) {
-          update(task.id, {status: controller.signal.aborted ? 'cancelled' : 'error', speed: 0,
+          // finishedAt is set for every outcome, not just success, so the
+          // history section can say when a failed transfer ended.
+          update(task.id, {status: controller.signal.aborted ? 'cancelled' : 'error', speed: 0, finishedAt: Date.now(),
             error: controller.signal.aborted ? 'Cancelled' : e instanceof TypeError ? 'This source blocks cross-origin downloads (CORS), or is offline. Open the source to download in your browser.' : (e as Error).message});
         } finally { active.current.delete(task.id); setTasks(ts => [...ts]); }
       })();
@@ -51,9 +53,9 @@ export function useDownloads(concurrency: number, parts = 8) {
     filename = filename.replace(/[/\\<>:"|?*\x00-\x1F]/g, '_').slice(0, 180);
     setTasks(ts => [{id: uid(), url, filename, status: 'queued', received: 0, total: 0, speed: 0, createdAt: Date.now()}, ...ts]); return true;
   }
-  function cancel(id: string) { active.current.get(id)?.controller.abort(); update(id, {status: 'cancelled', speed: 0}); }
+  function cancel(id: string) { active.current.get(id)?.controller.abort(); update(id, {status: 'cancelled', speed: 0, finishedAt: Date.now()}); }
   function retry(id: string) { if (active.current.has(id)) return; update(id, {status: 'queued', received: 0, total: 0, speed: 0, mode: undefined, parts: undefined, completedParts: undefined, transferNote: undefined, error: undefined}); }
   function clear() { setTasks(ts => ts.filter(t => ['queued','downloading'].includes(t.status))); }
-  function cancelAll() { active.current.forEach(({controller}) => controller.abort()); setTasks(ts => ts.map(t => ['queued','downloading'].includes(t.status) ? {...t, status:'cancelled', speed:0} : t)); }
+  function cancelAll() { active.current.forEach(({controller}) => controller.abort()); const now = Date.now(); setTasks(ts => ts.map(t => ['queued','downloading'].includes(t.status) ? {...t, status:'cancelled', speed:0, finishedAt:now} : t)); }
   return {tasks, add, cancel, retry, clear, cancelAll};
 }
