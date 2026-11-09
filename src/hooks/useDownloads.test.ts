@@ -11,13 +11,13 @@ describe('real download queue',()=>{
   it('streams bytes and saves a complete file',async()=>{
     vi.stubGlobal('fetch',vi.fn().mockResolvedValue(response()));
     const {result}=renderHook(()=>useDownloads(2));
-    act(()=>{expect(result.current.add('https://example.com/file.bin','')).toBe(true);});
+    act(()=>{expect(result.current.add('https://example.com/file.bin','').status).toBe('added');});
     await waitFor(()=>expect(result.current.tasks[0].status).toBe('done'));
     expect(result.current.tasks[0].received).toBe(3);expect(saveBlob).toHaveBeenCalledOnce();
   });
   it('rejects non-web URLs without starting a transfer',()=>{
     const fetcher=vi.fn();vi.stubGlobal('fetch',fetcher);const {result}=renderHook(()=>useDownloads(1));
-    act(()=>{expect(result.current.add('javascript:alert(1)','')).toBe(false);});expect(fetcher).not.toHaveBeenCalled();
+    act(()=>{expect(result.current.add('javascript:alert(1)','').status).toBe('invalid');});expect(fetcher).not.toHaveBeenCalled();
   });
   it('reports cross-origin failure honestly',async()=>{
     vi.stubGlobal('fetch',vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
@@ -83,3 +83,133 @@ describe('real download queue',()=>{
   });
 
 });
+
+// A web page cannot see the Downloads folder, so Veilix cannot know whether a
+// file is still on disk -- it only knows what it has saved itself. These tests
+// pin that narrower promise: the collision is detected from our own history, and
+// the user's choice is honoured rather than guessed.
+describe('name collisions',()=>{
+  // A fresh Response per call: a body can only be read once, and several of
+  // these tests queue a second transfer that has to be readable too.
+  const ok=()=>vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>response()));
+  beforeEach(()=>localStorage.clear());
+
+  it('asks instead of queueing when the name has been saved before',async()=>{
+    ok();const {result}=renderHook(()=>useDownloads(2));
+    act(()=>{result.current.add('https://example.com/app.pdf','App.pdf');});
+    await waitFor(()=>expect(result.current.tasks[0].status).toBe('done'));
+    act(()=>{const r=result.current.add('https://example.com/app.pdf','App.pdf');expect(r.status).toBe('collision');});
+    // Nothing new was queued, so the user can still cancel without paying for bytes.
+    expect(result.current.tasks).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it('offers a versioned replacement the user can accept',()=>{
+    ok();const {result}=renderHook(()=>useDownloads(2));
+    act(()=>{result.current.add('https://example.com/app.pdf','App.pdf');});
+    act(()=>{const r=result.current.add('https://example.com/app.pdf','App.pdf');
+      expect(r.status).toBe('collision');
+      if(r.status==='collision')expect(r.replacement).toBe('App_v2.pdf');});
+  });
+
+  it('counts how many times the name was already used',async()=>{
+    ok();const {result}=renderHook(()=>useDownloads(2));
+    act(()=>{result.current.add('https://example.com/app.pdf','App.pdf');});
+    await waitFor(()=>expect(result.current.tasks[0].status).toBe('done'));
+    act(()=>{const r=result.current.add('https://example.com/app.pdf','App.pdf');
+      expect(r.status==='collision'&&r.prior).toBe(1);});
+  });
+
+  it('queues under the original name when the user chooses to replace',async()=>{
+    ok();const {result}=renderHook(()=>useDownloads(2));
+    act(()=>{result.current.add('https://example.com/app.pdf','App.pdf');});
+    await waitFor(()=>expect(result.current.tasks[0].status).toBe('done'));
+    act(()=>{expect(result.current.add('https://example.com/app.pdf','App.pdf','replace').status).toBe('added');});
+    expect(result.current.tasks).toHaveLength(2);
+    expect(result.current.tasks[0].filename).toBe('App.pdf');
+  });
+
+  it('queues under a versioned name when the user chooses to keep both',async()=>{
+    ok();const {result}=renderHook(()=>useDownloads(2));
+    act(()=>{result.current.add('https://example.com/app.pdf','App.pdf');});
+    await waitFor(()=>expect(result.current.tasks[0].status).toBe('done'));
+    act(()=>{expect(result.current.add('https://example.com/app.pdf','App.pdf','keep-both').status).toBe('added');});
+    expect(result.current.tasks[0].filename).toBe('App_v2.pdf');
+    // The earlier file keeps the name it was saved under; only the new one moved.
+    expect(result.current.tasks[1].filename).toBe('App.pdf');
+  });
+
+  it('walks past versions that are taken too',async()=>{
+    ok();const {result}=renderHook(()=>useDownloads(2));
+    act(()=>{result.current.add('https://example.com/app.pdf','App.pdf');});
+    await waitFor(()=>expect(result.current.tasks[0].status).toBe('done'));
+    act(()=>{result.current.add('https://example.com/app.pdf','App.pdf','keep-both');});
+    await waitFor(()=>expect(result.current.tasks[0].status).toBe('done'));
+    act(()=>{const r=result.current.add('https://example.com/app.pdf','App.pdf');
+      expect(r.status==='collision'&&r.replacement).toBe('App_v3.pdf');});
+  });
+
+  it('does not treat a different name as a collision',()=>{
+    ok();const {result}=renderHook(()=>useDownloads(2));
+    act(()=>{result.current.add('https://example.com/app.pdf','App.pdf');});
+    act(()=>{expect(result.current.add('https://example.com/other.pdf','Other.pdf').status).toBe('added');});
+    expect(result.current.tasks).toHaveLength(2);
+  });
+
+  it('notices a collision against a file that is still queued, not just finished',()=>{
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})));
+    const {result}=renderHook(()=>useDownloads(4));
+    act(()=>{result.current.add('https://example.com/app.pdf','App.pdf');});
+    act(()=>{expect(result.current.add('https://example.com/app.pdf','App.pdf').status).toBe('collision');});
+  });
+
+  it('calls the same filename from the same site an update',()=>{
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})));
+    const {result}=renderHook(()=>useDownloads(4));
+    act(()=>{result.current.add('https://devsite.com/preview','App.apk');});
+    act(()=>{const r=result.current.add('https://devsite.com/preview-v2','App.apk');
+      expect(r.status==='collision'&&r.kind).toBe('update');});
+  });
+
+  it('reports which site the earlier file came from',()=>{
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})));
+    const {result}=renderHook(()=>useDownloads(4));
+    act(()=>{result.current.add('https://devsite.com/preview','App.apk');});
+    act(()=>{const r=result.current.add('https://devsite.com/other','App.apk');
+      expect(r.status==='collision'&&r.source).toBe('https://devsite.com');});
+  });
+
+  it('calls the same filename from a different site a duplicate, not an update',()=>{
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})));
+    const {result}=renderHook(()=>useDownloads(4));
+    act(()=>{result.current.add('https://devsite.com/preview','App.apk');});
+    act(()=>{const r=result.current.add('https://mirror.example/App.apk','App.apk');
+      expect(r.status==='collision'&&r.kind).toBe('duplicate');
+      expect(r.status==='collision'&&r.source).toBeUndefined();});
+  });
+
+  it('treats a subdomain as a different site',()=>{
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})));
+    const {result}=renderHook(()=>useDownloads(4));
+    act(()=>{result.current.add('https://devsite.com/preview','App.apk');});
+    act(()=>{const r=result.current.add('https://cdn.devsite.com/App.apk','App.apk');
+      expect(r.status==='collision'&&r.kind).toBe('duplicate');});
+  });
+
+  it('says when the earlier file was saved, so the user can judge how stale it is',()=>{
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})));
+    const {result}=renderHook(()=>useDownloads(4));
+    act(()=>{result.current.add('https://devsite.com/preview','App.apk');});
+    act(()=>{const r=result.current.add('https://devsite.com/preview-v2','App.apk');
+      expect(r.status==='collision'&&typeof r.finishedAt).toBe('number');});
+  });
+
+  it('still offers a versioned replacement for an update',()=>{
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(()=>new Promise(()=>{})));
+    const {result}=renderHook(()=>useDownloads(4));
+    act(()=>{result.current.add('https://devsite.com/preview','App.apk');});
+    act(()=>{const r=result.current.add('https://devsite.com/preview-v2','App.apk');
+      expect(r.status==='collision'&&r.replacement).toBe('App_v2.apk');});
+  });
+});
+
