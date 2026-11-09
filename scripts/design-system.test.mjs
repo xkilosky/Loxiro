@@ -41,7 +41,9 @@ describe('design tokens', () => {
 
   it('leaves the search button and logo mark on the palette, not a custom colour', () => {
     expect(ruleFor('.search-submit')).toContain('var(--accent)');
-    expect(ruleFor('.logo-icon')).toContain('var(--accent)');
+    // The mark is no longer built from divs; it is the asset produced by
+    // scripts/build-icons.py, which is pinned in icons.test.mjs.
+    expect(ruleFor('.veilix-mark')).not.toBe('');
   });
 });
 

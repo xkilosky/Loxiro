@@ -24,3 +24,7 @@ android/local.properties
 *.aab
 *.jks
 *.keystore
+
+# Python bytecode from the icon build script
+__pycache__/
+*.pyc
