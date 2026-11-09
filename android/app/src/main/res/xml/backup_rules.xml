@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 and below (fullBackupContent). Only the two app-private preference
+  files are backed up: tab session and browser settings. Listing includes and
+  nothing else is what limits the set, so cookies, cache and tab previews are
+  left out without needing excludes for domains that may not be valid.
+-->
+<full-backup-content>
+    <include domain="sharedpref" path="native-tabs-v1.xml" />
+    <include domain="sharedpref" path="native-settings-v1.xml" />
+</full-backup-content>
