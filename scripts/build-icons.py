@@ -362,7 +362,9 @@ def main():
     # --- vector master (512 viewBox)
     parts = [f'<rect width="512" height="512" rx="{round(TILE_RADIUS*512)}" fill="#080B14"/>']
     for poly, colour in layers:
-        pts = ' '.join('%s,%s' % (fmt(x * 512), fmt(y * 512)) for x, y in poly)
+        # Explicit L commands: implicit lineto after M is core SVG, but spelling
+        # it out costs nothing and keeps the two generators identical.
+        pts = ' L'.join('%s,%s' % (fmt(x * 512), fmt(y * 512)) for x, y in poly)
         parts.append('<path d="M%sZ" fill="#%02X%02X%02X"/>' % (pts, *colour))
     svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" '
            'viewBox="0 0 512 512">' + ''.join(parts) + '</svg>')
@@ -372,7 +374,7 @@ def main():
     # --- Android vector (108dp viewport)
     aparts = []
     for poly, colour in layers:
-        pts = ' '.join('%s,%s' % (fmt(x * 108), fmt(y * 108)) for x, y in poly)
+        pts = ' L'.join('%s,%s' % (fmt(x * 108), fmt(y * 108)) for x, y in poly)
         aparts.append('    <path android:fillColor="#%02X%02X%02X" '
                       'android:pathData="M%sZ" />' % (*colour, pts))
     vector = (
